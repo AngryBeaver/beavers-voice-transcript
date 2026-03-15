@@ -21,8 +21,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract version from commit message
         id: version
@@ -52,10 +50,6 @@ jobs:
         run: |
           npm pkg set version=${{ steps.version.outputs.num }} --prefix foundry
           npm pkg set version=${{ steps.version.outputs.num }} --prefix client
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add foundry/package.json client/package.json
-          git diff --staged --quiet || git commit -m "chore: bump version to ${{ steps.version.outputs.tag }}" && git push
 
       - name: Build release zip
         run: npm run release
