@@ -8,7 +8,7 @@
     ".": "./src/index.mjs"
   },
   "bin": {
-    "beavers-ai-assistant-client": "./src/cli.mjs"
+    "beavers-client": "./src/cli.mjs"
   },
   "dependencies": {
     "socket.io-client": "^4.8.1"

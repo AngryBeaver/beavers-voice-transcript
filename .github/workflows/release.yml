@@ -11,6 +11,8 @@ jobs:
   release:
     runs-on: ubuntu-latest
     if: startsWith(github.event.head_commit.message, 'release v')
+    outputs:
+      version: ${{ steps.version.outputs.num }}
 
     permissions:
       contents: write
@@ -86,5 +88,7 @@ jobs:
           node-version: "24"
 
       - run: npm install -g npm@latest
+
+      - run: npm pkg set version=${{ needs.release.outputs.version }}
 
       - run: npm publish --provenance --access public
