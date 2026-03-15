@@ -12,6 +12,10 @@ https://github.com/AngryBeaver/beavers-ai-assistant/releases/latest/download/mod
 
 **Dependencies:** `socketlib`, `beavers-system-interface`
 
+## Requirements
+
+> **A Gamemaster must be connected to the Foundry instance** for the socket API to function. The module runs in the context of the active Gamemaster session.
+
 ## Setup
 
 On first load the module automatically creates an **AI-Assistant** Foundry user (role: Assistant GM). The credentials for this user are shown in:

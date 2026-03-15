@@ -2,6 +2,8 @@
 
 A standalone Node.js client to manually test the module's socket API against a running Foundry instance.
 
+> **A Gamemaster must be connected to the Foundry instance** before running any tests.
+
 ## Setup
 
 ```bash
