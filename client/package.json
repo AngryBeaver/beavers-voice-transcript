@@ -8,10 +8,14 @@
     ".": "./src/index.mjs"
   },
   "bin": {
-    "beavers-client": "./src/cli.mjs"
+    "beavers-ai-assistant-client": "./src/cli.mjs"
   },
   "dependencies": {
     "socket.io-client": "^4.8.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AngryBeaver/beavers-ai-assistant"
   },
   "keywords": [
     "foundry-vtt",
