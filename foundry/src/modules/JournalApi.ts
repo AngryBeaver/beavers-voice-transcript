@@ -1,4 +1,5 @@
 import { NAMESPACE } from "../definitions.js";
+import { JournalData, JournalPageData } from "../types.js";
 
 export class JournalApi {
   /**
@@ -47,28 +48,44 @@ export class JournalApi {
   /**
    * Create or update a journal entry.
    */
-  static async writeJournal(data: any) {
-    let journal = data.id ? game.journal.get(data.id) : data.name ? game.journal.getName(data.name) : null;
+  static async writeJournal(data: JournalData) {
+    const payload = { ...data };
+
+    if (payload.folder) {
+      const normalised = payload.folder.trim().toLowerCase();
+      const existing =
+        game.folders.get(payload.folder) ||
+        game.folders.find((f: any) => f.name.trim().toLowerCase() === normalised && f.type === "JournalEntry");
+      if (existing) {
+        payload.folder = existing.id;
+      } else {
+        // @ts-ignore
+        const created = await Folder.create({ name: payload.folder, type: "JournalEntry" });
+        payload.folder = created.id;
+      }
+    }
+
+    let journal = payload.id ? game.journal.get(payload.id) : payload.name ? game.journal.getName(payload.name) : null;
 
     if (journal) {
-      return journal.update(data);
+      return journal.update(payload);
     } else {
       // @ts-ignore
-      return JournalEntry.create(data);
+      return JournalEntry.create(payload);
     }
   }
 
   /**
-   * Add or update a page in a journal entry.
+   * Create or replace a page in a journal entry.
    */
-  static async writeJournalPage(journalIdentifier: string, pageData: any) {
+  static async writeJournalPage(journalIdentifier: string, pageData: JournalPageData) {
     const journal = game.journal.get(journalIdentifier) || game.journal.getName(journalIdentifier);
     if (!journal) {
       throw new Error(`Journal entry not found: ${journalIdentifier}`);
     }
 
     // @ts-ignore
-    let page = pageData.id
+    const page = pageData.id
       ? journal.pages.get(pageData.id)
       : pageData.name
         ? journal.pages.getName(pageData.name)
@@ -80,5 +97,45 @@ export class JournalApi {
       // @ts-ignore
       return journal.createEmbeddedDocuments("JournalEntryPage", [pageData]);
     }
+  }
+
+  /**
+   * Append HTML to a transcript page, auto-rotating to a new page when the
+   * current one exceeds maxPageBytes (default 50 KB). Pages are named
+   * "<pageName>", "<pageName> (2)", "<pageName> (3)", etc.
+   * Creates the journal entry's page on first call.
+   */
+  static async appendJournalPage(journalIdentifier: string, pageName: string, html: string, maxPageBytes = 50_000) {
+    const journal = game.journal.get(journalIdentifier) || game.journal.getName(journalIdentifier);
+    if (!journal) {
+      throw new Error(`Journal entry not found: ${journalIdentifier}`);
+    }
+
+    // Find the highest-numbered existing page for this base name
+    // @ts-ignore
+    const pages: any[] = journal.pages.contents;
+    const pattern = new RegExp(`^${pageName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?: \\((\\d+)\\))?$`);
+    const matching = pages
+      .filter((p: any) => pattern.test(p.name))
+      .sort((a: any, b: any) => {
+        const aNum = parseInt(a.name.match(pattern)?.[1] ?? "1");
+        const bNum = parseInt(b.name.match(pattern)?.[1] ?? "1");
+        return bNum - aNum;
+      });
+
+    const currentPage = matching[0] ?? null;
+    const currentSize = new TextEncoder().encode(currentPage?.text?.content ?? "").length;
+
+    if (!currentPage || currentSize + new TextEncoder().encode(html).length > maxPageBytes) {
+      const nextNum = currentPage ? parseInt(currentPage.name.match(pattern)?.[1] ?? "1") + 1 : null;
+      const newName = nextNum ? `${pageName} (${nextNum})` : pageName;
+      // @ts-ignore
+      return journal.createEmbeddedDocuments("JournalEntryPage", [
+        { name: newName, type: "text", text: { content: html, format: 1 } },
+      ]);
+    }
+
+    const existing = currentPage.text?.content ?? "";
+    return currentPage.update({ "text.content": existing + html });
   }
 }

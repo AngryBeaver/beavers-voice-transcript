@@ -35,7 +35,8 @@ try {
     case "listJournals":    result = await client.listJournals(args[0]); break;
     case "readJournal":     result = await client.readJournal(args[0]); break;
     case "writeJournal":    result = await client.writeJournal(args[0]); break;
-    case "writeJournalPage":result = await client.writeJournalPage(args[0], args[1]); break;
+    case "writeJournalPage":  result = await client.writeJournalPage(args[0], args[1]); break;
+    case "appendJournalPage": result = await client.appendJournalPage(args[0], args[1], args[2]); break;
     default: throw new Error(`Unknown action: ${action}`);
   }
 

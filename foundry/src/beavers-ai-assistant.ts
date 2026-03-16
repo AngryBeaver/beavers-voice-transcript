@@ -47,6 +47,7 @@ Hooks.once("socketlib.ready", () => {
   socket.register("readJournal", JournalApi.readJournal.bind(JournalApi));
   socket.register("writeJournal", JournalApi.writeJournal.bind(JournalApi));
   socket.register("writeJournalPage", JournalApi.writeJournalPage.bind(JournalApi));
+  socket.register("appendJournalPage", JournalApi.appendJournalPage.bind(JournalApi));
 
   // @ts-ignore
   game[NAMESPACE] = game[NAMESPACE] || {};

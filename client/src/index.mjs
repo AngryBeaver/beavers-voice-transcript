@@ -102,6 +102,20 @@ export class BeaversClient {
     return this.#request("writeJournalPage", [journalIdentifier, pageData]);
   }
 
+  /**
+   * Append HTML to a transcript page. Auto-rotates to a new page when the
+   * current one exceeds maxPageBytes (default 50 KB). Pages are named
+   * "<pageName>", "<pageName> (2)", "<pageName> (3)", etc.
+   *
+   * @param {string} journalIdentifier - Journal name or ID
+   * @param {string} pageName         - Base page name
+   * @param {string} html             - HTML to append
+   * @param {number} [maxPageBytes]   - Rotate threshold in bytes (default 50000)
+   */
+  async appendJournalPage(journalIdentifier, pageName, html, maxPageBytes) {
+    return this.#request("appendJournalPage", [journalIdentifier, pageName, html, maxPageBytes]);
+  }
+
   // ── Internal ────────────────────────────────────────────────────────────────
 
   async #request(action, args) {

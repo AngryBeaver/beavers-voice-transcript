@@ -1,5 +1,6 @@
 import { NAMESPACE, SOCKET_NAME } from "../definitions.js";
 import { JournalApi } from "../modules/JournalApi.js";
+import { JournalData, JournalPageData } from "../types";
 
 interface SocketRequest {
   id: string;
@@ -52,10 +53,18 @@ export class SocketApi {
           result = await JournalApi.readJournal(data.args[0] as string);
           break;
         case "writeJournal":
-          result = await JournalApi.writeJournal(data.args[0]);
+          result = await JournalApi.writeJournal(data.args[0] as JournalData);
           break;
         case "writeJournalPage":
-          result = await JournalApi.writeJournalPage(data.args[0] as string, data.args[1]);
+          result = await JournalApi.writeJournalPage(data.args[0] as string, data.args[1] as JournalPageData);
+          break;
+        case "appendJournalPage":
+          result = await JournalApi.appendJournalPage(
+            data.args[0] as string,
+            data.args[1] as string,
+            data.args[2] as string,
+            data.args[3] as number | undefined,
+          );
           break;
         default:
           throw new Error(`Unknown action: ${data.action}`);
