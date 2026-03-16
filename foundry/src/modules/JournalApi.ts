@@ -1,5 +1,5 @@
-import { NAMESPACE } from "../definitions.js";
-import { JournalData, JournalPageData } from "../types.js";
+import { NAMESPACE } from '../definitions.js';
+import { JournalData, JournalPageData } from '../types.js';
 
 export class JournalApi {
   /**
@@ -10,16 +10,19 @@ export class JournalApi {
     if (folderIdentifier) {
       const folder =
         game.folders.get(folderIdentifier) ||
-        game.folders.find((f: any) => f.name === folderIdentifier && f.type === "JournalEntry");
+        game.folders.find((f: any) => f.name === folderIdentifier && f.type === 'JournalEntry');
       if (!folder) throw new Error(`Folder not found: ${folderIdentifier}`);
       folderId = folder.id;
     }
     const folders = game.folders
-      .filter((f: any) => f.type === "JournalEntry" && (folderId ? f.folder?.id === folderId : f.folder == null))
-      .map((f: any) => ({ id: f.id, name: f.name, type: "folder" }));
+      .filter(
+        (f: any) =>
+          f.type === 'JournalEntry' && (folderId ? f.folder?.id === folderId : f.folder == null),
+      )
+      .map((f: any) => ({ id: f.id, name: f.name, type: 'folder' }));
     const journals = game.journal
       .filter((j: any) => (folderId ? j.folder?.id === folderId : j.folder == null))
-      .map((j: any) => ({ id: j.id, name: j.name, type: "journal" }));
+      .map((j: any) => ({ id: j.id, name: j.name, type: 'journal' }));
     return [...folders, ...journals];
   }
 
@@ -55,17 +58,23 @@ export class JournalApi {
       const normalised = payload.folder.trim().toLowerCase();
       const existing =
         game.folders.get(payload.folder) ||
-        game.folders.find((f: any) => f.name.trim().toLowerCase() === normalised && f.type === "JournalEntry");
+        game.folders.find(
+          (f: any) => f.name.trim().toLowerCase() === normalised && f.type === 'JournalEntry',
+        );
       if (existing) {
         payload.folder = existing.id;
       } else {
         // @ts-ignore
-        const created = await Folder.create({ name: payload.folder, type: "JournalEntry" });
+        const created = await Folder.create({ name: payload.folder, type: 'JournalEntry' });
         payload.folder = created.id;
       }
     }
 
-    let journal = payload.id ? game.journal.get(payload.id) : payload.name ? game.journal.getName(payload.name) : null;
+    let journal = payload.id
+      ? game.journal.get(payload.id)
+      : payload.name
+        ? game.journal.getName(payload.name)
+        : null;
 
     if (journal) {
       return journal.update(payload);
@@ -95,7 +104,7 @@ export class JournalApi {
       return page.update(pageData);
     } else {
       // @ts-ignore
-      return journal.createEmbeddedDocuments("JournalEntryPage", [pageData]);
+      return journal.createEmbeddedDocuments('JournalEntryPage', [pageData]);
     }
   }
 
@@ -105,7 +114,12 @@ export class JournalApi {
    * "<pageName>", "<pageName> (2)", "<pageName> (3)", etc.
    * Creates the journal entry's page on first call.
    */
-  static async appendJournalPage(journalIdentifier: string, pageName: string, html: string, maxPageBytes = 50_000) {
+  static async appendJournalPage(
+    journalIdentifier: string,
+    pageName: string,
+    html: string,
+    maxPageBytes = 50_000,
+  ) {
     const journal = game.journal.get(journalIdentifier) || game.journal.getName(journalIdentifier);
     if (!journal) {
       throw new Error(`Journal entry not found: ${journalIdentifier}`);
@@ -114,28 +128,32 @@ export class JournalApi {
     // Find the highest-numbered existing page for this base name
     // @ts-ignore
     const pages: any[] = journal.pages.contents;
-    const pattern = new RegExp(`^${pageName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?: \\((\\d+)\\))?$`);
+    const pattern = new RegExp(
+      `^${pageName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?: \\((\\d+)\\))?$`,
+    );
     const matching = pages
       .filter((p: any) => pattern.test(p.name))
       .sort((a: any, b: any) => {
-        const aNum = parseInt(a.name.match(pattern)?.[1] ?? "1");
-        const bNum = parseInt(b.name.match(pattern)?.[1] ?? "1");
+        const aNum = parseInt(a.name.match(pattern)?.[1] ?? '1');
+        const bNum = parseInt(b.name.match(pattern)?.[1] ?? '1');
         return bNum - aNum;
       });
 
     const currentPage = matching[0] ?? null;
-    const currentSize = new TextEncoder().encode(currentPage?.text?.content ?? "").length;
+    const currentSize = new TextEncoder().encode(currentPage?.text?.content ?? '').length;
 
     if (!currentPage || currentSize + new TextEncoder().encode(html).length > maxPageBytes) {
-      const nextNum = currentPage ? parseInt(currentPage.name.match(pattern)?.[1] ?? "1") + 1 : null;
+      const nextNum = currentPage
+        ? parseInt(currentPage.name.match(pattern)?.[1] ?? '1') + 1
+        : null;
       const newName = nextNum ? `${pageName} (${nextNum})` : pageName;
       // @ts-ignore
-      return journal.createEmbeddedDocuments("JournalEntryPage", [
-        { name: newName, type: "text", text: { content: html, format: 1 } },
+      return journal.createEmbeddedDocuments('JournalEntryPage', [
+        { name: newName, type: 'text', text: { content: html, format: 1 } },
       ]);
     }
 
-    const existing = currentPage.text?.content ?? "";
-    return currentPage.update({ "text.content": existing + html });
+    const existing = currentPage.text?.content ?? '';
+    return currentPage.update({ 'text.content': existing + html });
   }
 }

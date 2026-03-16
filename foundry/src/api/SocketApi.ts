@@ -1,6 +1,6 @@
-import { NAMESPACE, SOCKET_NAME } from "../definitions.js";
-import { JournalApi } from "../modules/JournalApi.js";
-import { JournalData, JournalPageData } from "../types";
+import { NAMESPACE, SOCKET_NAME } from '../definitions.js';
+import { JournalApi } from '../modules/JournalApi.js';
+import { JournalData, JournalPageData } from '../types';
 
 interface SocketRequest {
   id: string;
@@ -46,19 +46,22 @@ export class SocketApi {
 
     try {
       switch (data.action) {
-        case "listJournals":
+        case 'listJournals':
           result = await JournalApi.listJournals(data.args[0] as string | undefined);
           break;
-        case "readJournal":
+        case 'readJournal':
           result = await JournalApi.readJournal(data.args[0] as string);
           break;
-        case "writeJournal":
+        case 'writeJournal':
           result = await JournalApi.writeJournal(data.args[0] as JournalData);
           break;
-        case "writeJournalPage":
-          result = await JournalApi.writeJournalPage(data.args[0] as string, data.args[1] as JournalPageData);
+        case 'writeJournalPage':
+          result = await JournalApi.writeJournalPage(
+            data.args[0] as string,
+            data.args[1] as JournalPageData,
+          );
           break;
-        case "appendJournalPage":
+        case 'appendJournalPage':
           result = await JournalApi.appendJournalPage(
             data.args[0] as string,
             data.args[1] as string,

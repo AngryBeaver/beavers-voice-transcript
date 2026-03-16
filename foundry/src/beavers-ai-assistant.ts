@@ -1,14 +1,14 @@
-import { AI_ASSISTANT_USER_NAME, NAMESPACE, SETTINGS } from "./definitions.js";
-import { ApiSettings } from "./apps/ApiSettings.js";
-import { JournalApi } from "./modules/JournalApi.js";
-import { SocketApi } from "./api/SocketApi.js";
+import { AI_ASSISTANT_USER_NAME, NAMESPACE, SETTINGS } from './definitions.js';
+import { ApiSettings } from './apps/ApiSettings.js';
+import { JournalApi } from './modules/JournalApi.js';
+import { SocketApi } from './api/SocketApi.js';
 
-Hooks.once("init", async function () {
+Hooks.once('init', async function () {
   game[NAMESPACE] = game[NAMESPACE] || {};
   game[NAMESPACE].Settings = new ApiSettings();
 });
 
-Hooks.once("ready", async function () {
+Hooks.once('ready', async function () {
   console.log(`${NAMESPACE} | Ready`);
   if (game.user.isGM) {
     await ensureAiAssistantUser();
@@ -39,15 +39,15 @@ async function ensureAiAssistantUser(): Promise<void> {
 }
 
 // socketlib: Foundry-internal RPC (other modules, macros, GM permission elevation)
-Hooks.once("socketlib.ready", () => {
+Hooks.once('socketlib.ready', () => {
   // @ts-ignore
   const socket = socketlib.registerModule(NAMESPACE);
 
-  socket.register("listJournals", JournalApi.listJournals.bind(JournalApi));
-  socket.register("readJournal", JournalApi.readJournal.bind(JournalApi));
-  socket.register("writeJournal", JournalApi.writeJournal.bind(JournalApi));
-  socket.register("writeJournalPage", JournalApi.writeJournalPage.bind(JournalApi));
-  socket.register("appendJournalPage", JournalApi.appendJournalPage.bind(JournalApi));
+  socket.register('listJournals', JournalApi.listJournals.bind(JournalApi));
+  socket.register('readJournal', JournalApi.readJournal.bind(JournalApi));
+  socket.register('writeJournal', JournalApi.writeJournal.bind(JournalApi));
+  socket.register('writeJournalPage', JournalApi.writeJournalPage.bind(JournalApi));
+  socket.register('appendJournalPage', JournalApi.appendJournalPage.bind(JournalApi));
 
   // @ts-ignore
   game[NAMESPACE] = game[NAMESPACE] || {};

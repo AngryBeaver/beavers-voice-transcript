@@ -50,9 +50,7 @@ export class BeaversClient {
     });
     const body = await loginRes.json().catch(() => ({}));
     if ((body as { status?: string }).status !== 'success') {
-      throw new Error(
-        `Login failed: ${(body as { message?: string }).message ?? loginRes.status}`,
-      );
+      throw new Error(`Login failed: ${(body as { message?: string }).message ?? loginRes.status}`);
     }
 
     const cookie = loginRes.headers.get('set-cookie')?.split(';')[0].trim() ?? initCookie;
@@ -68,10 +66,7 @@ export class BeaversClient {
         withCredentials: false,
       });
 
-      const timer = setTimeout(
-        () => reject(new Error('Socket connect timed out.')),
-        this.#timeout,
-      );
+      const timer = setTimeout(() => reject(new Error('Socket connect timed out.')), this.#timeout);
 
       socket.once('connect_error', (err) => {
         clearTimeout(timer);

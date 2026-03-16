@@ -49,7 +49,11 @@ try {
       result = await client.writeJournalPage(args[0] as string, args[1]);
       break;
     case 'appendJournalPage':
-      result = await client.appendJournalPage(args[0] as string, args[1] as string, args[2] as string);
+      result = await client.appendJournalPage(
+        args[0] as string,
+        args[1] as string,
+        args[2] as string,
+      );
       break;
     default:
       throw new Error(`Unknown action: ${action}`);

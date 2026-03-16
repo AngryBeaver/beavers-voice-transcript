@@ -1,10 +1,13 @@
-import { AI_ASSISTANT_USER_NAME, NAMESPACE, SETTINGS } from "../definitions.js";
+import { AI_ASSISTANT_USER_NAME, NAMESPACE, SETTINGS } from '../definitions.js';
 
-class AiAssistantApp extends foundry.applications.api.ApplicationV2<{ userId: string; password: string }> {
+class AiAssistantApp extends foundry.applications.api.ApplicationV2<{
+  userId: string;
+  password: string;
+}> {
   static DEFAULT_OPTIONS = {
-    id: "beavers-voice-transcript-settings",
+    id: 'beavers-voice-transcript-settings',
     window: {
-      title: "Beavers Voice Transcript — Connection Info",
+      title: 'Beavers Voice Transcript — Connection Info',
       resizable: false,
     },
     position: { width: 460 },
@@ -20,12 +23,15 @@ class AiAssistantApp extends foundry.applications.api.ApplicationV2<{ userId: st
     const user = game.users.find((u: any) => u.name === AI_ASSISTANT_USER_NAME);
     // @ts-ignore
     const password = game.settings.get(NAMESPACE, SETTINGS.AI_ASSISTANT_PASSWORD) as string;
-    return { userId: user?.id ?? "—", password };
+    return { userId: user?.id ?? '—', password };
   }
 
-  async _renderHTML(context: { userId: string; password: string }, _options: object): Promise<HTMLElement> {
-    const el = document.createElement("div");
-    el.style.cssText = "padding:1rem 1rem .75rem";
+  async _renderHTML(
+    context: { userId: string; password: string },
+    _options: object,
+  ): Promise<HTMLElement> {
+    const el = document.createElement('div');
+    el.style.cssText = 'padding:1rem 1rem .75rem';
     el.innerHTML = `
             <p style="margin-bottom:.75rem">
                 Use these credentials in your external tool's <code>.env</code> file.
@@ -62,13 +68,13 @@ class AiAssistantApp extends foundry.applications.api.ApplicationV2<{ userId: st
     if (!user) return;
     await navigator.clipboard.writeText(user.id);
 
-    ui.notifications.info("User ID copied to clipboard.");
+    ui.notifications.info('User ID copied to clipboard.');
   }
 
   static async _onCopyPassword(this: AiAssistantApp): Promise<void> {
     const password = game.settings.get(NAMESPACE, SETTINGS.AI_ASSISTANT_PASSWORD) as string;
     await navigator.clipboard.writeText(password);
-    ui.notifications.info("Password copied to clipboard.");
+    ui.notifications.info('Password copied to clipboard.');
   }
 
   static async _onRegenerate(this: AiAssistantApp): Promise<void> {
@@ -88,17 +94,17 @@ export class ApiSettings {
 
   registerSettings() {
     game.settings.register(NAMESPACE, SETTINGS.AI_ASSISTANT_PASSWORD, {
-      scope: "world",
+      scope: 'world',
       config: false,
       type: String,
-      default: "",
+      default: '',
     });
 
-    game.settings.registerMenu(NAMESPACE, "aiAssistant", {
-      name: "AI Assistant",
-      label: "Connection Info",
-      hint: "Show the credentials your external tool needs to connect.",
-      icon: "fas fa-robot",
+    game.settings.registerMenu(NAMESPACE, 'aiAssistant', {
+      name: 'AI Assistant',
+      label: 'Connection Info',
+      hint: 'Show the credentials your external tool needs to connect.',
+      icon: 'fas fa-robot',
       type: AiAssistantApp,
       restricted: true,
     });

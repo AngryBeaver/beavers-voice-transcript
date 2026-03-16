@@ -11,7 +11,7 @@ export interface JournalPageData {
   /** Page name/title. Required when creating a new page. */
   name?: string;
   /** Page type. Defaults to "text". */
-  type?: "text" | "image" | "pdf" | "video";
+  type?: 'text' | 'image' | 'pdf' | 'video';
   /** Text page content. Only relevant when type is "text". */
   text?: {
     /** Raw HTML content. */
