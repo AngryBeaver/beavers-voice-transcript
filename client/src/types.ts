@@ -35,6 +35,8 @@ export interface JournalPageData {
 }
 
 export interface JournalData {
+  /** Foundry internal document ID (returned by write operations). */
+  _id?: string;
   /** Journal entry ID — if provided, the existing entry is updated; otherwise matched by name. */
   id?: string;
   /** Journal entry name. Required when creating a new entry. */

@@ -18,6 +18,7 @@
     "beavers-client": "./dist/cli.js"
   },
   "scripts": {
+    "prepare": "tsc",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",

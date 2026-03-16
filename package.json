@@ -1,0 +1,5 @@
+{
+  "name": "beavers-voice-transcript-workspace",
+  "private": true,
+  "workspaces": ["client", "discord-bot"]
+}

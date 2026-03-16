@@ -6,12 +6,3 @@ declare module 'prism-media' {
     }
   }
 }
-
-declare module 'beavers-ai-assistant-client' {
-  export class BeaversClient {
-    constructor(options: { url: string; userId?: string; password?: string });
-    connect(): Promise<void>;
-    writeJournal(options: { name: string; folder: string }): Promise<{ _id: string }>;
-    writeJournalPage(journalId: string, options: { content: string }): Promise<void>;
-  }
-}

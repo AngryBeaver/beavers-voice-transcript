@@ -9,11 +9,13 @@ import {
 import * as prism from 'prism-media';
 import { VoiceBasedChannel } from 'discord.js';
 import { transcribe } from './whisper';
-import { appendTranscript } from './foundry';
+import { appendTranscript, setPageName } from './foundry';
+import { detectCommand } from './commands';
 
 const SILENCE_TIMEOUT_MS = 1000;
 
 let connection: VoiceConnection | null = null;
+let isRecording = false;
 
 export async function joinAndListen(channel: VoiceBasedChannel): Promise<void> {
   connection = joinVoiceChannel({
@@ -26,12 +28,12 @@ export async function joinAndListen(channel: VoiceBasedChannel): Promise<void> {
 
   await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
   console.log(`[Voice] Joined channel: ${channel.name}`);
+  console.log('[Voice] Paused — waiting for start command');
 
   const receiver = connection.receiver;
 
   receiver.speaking.on('start', (userId) => {
     const user = channel.guild.members.cache.get(userId)?.displayName ?? userId;
-    console.log(`[Voice] ${user} started speaking`);
     listenToUser(receiver, userId, user);
   });
 }
@@ -52,8 +54,34 @@ function listenToUser(receiver: VoiceReceiver, userId: string, displayName: stri
       const transcript = await transcribe(buffer);
       if (!transcript) return;
 
-      console.log(`[${displayName}]: ${transcript}`);
-      await appendTranscript(displayName, transcript);
+      const command = detectCommand(transcript);
+
+      if (command) {
+        switch (command.type) {
+          case 'start':
+            isRecording = true;
+            console.log('[Bot] Recording STARTED — writing to Foundry');
+            break;
+          case 'pause':
+            isRecording = false;
+            console.log('[Bot] Recording PAUSED — console only');
+            break;
+          case 'page':
+            if (command.pageName) {
+              setPageName(command.pageName);
+              console.log(`[Bot] Page changed to: ${command.pageName}`);
+            }
+            break;
+        }
+        return; // commands are never written to Foundry or the transcript log
+      }
+
+      if (isRecording) {
+        console.log(`[${displayName}]: ${transcript}`);
+        await appendTranscript(displayName, transcript);
+      } else {
+        console.log(`[PAUSED] [${displayName}]: ${transcript}`);
+      }
     } catch (err) {
       console.error(`[Voice] Processing error for ${displayName}: ${(err as Error).message}`);
     }

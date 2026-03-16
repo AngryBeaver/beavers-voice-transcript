@@ -1,12 +1,17 @@
-import { BeaversClient } from 'beavers-ai-assistant-client';
+import { BeaversClient } from 'beavers-voice-transcript-client';
 
 const FOUNDRY_URL = process.env.FOUNDRY_URL ?? 'http://localhost:30000';
-const FOUNDRY_USER = process.env.FOUNDRY_USER;
-const FOUNDRY_PASS = process.env.FOUNDRY_PASS;
+const FOUNDRY_USER = process.env.FOUNDRY_USER ?? '';
+const FOUNDRY_PASS = process.env.FOUNDRY_PASS ?? '';
 const FOLDER_NAME = process.env.FOUNDRY_FOLDER_NAME ?? 'Session Transcripts';
 
 let client: BeaversClient | null = null;
 let currentJournalId: string | null = null;
+let currentPageName = process.env.FOUNDRY_PAGE_NAME ?? 'Transcript';
+
+export function setPageName(name: string): void {
+  currentPageName = name;
+}
 
 export async function connect(): Promise<void> {
   client = new BeaversClient({
@@ -34,13 +39,12 @@ export async function appendTranscript(username: string, text: string): Promise<
   try {
     if (!currentJournalId) {
       const journal = await client!.writeJournal({ name: sessionTitle(), folder: FOLDER_NAME });
-      console.log('[Foundry] writeJournal response:', JSON.stringify(journal));
-      currentJournalId = journal._id;
+      currentJournalId = journal._id ?? null;
       console.log(`[Foundry] Created journal: ${sessionTitle()} (${currentJournalId})`);
     }
 
-    const newLine = `<p><strong>${escapeHtml(username)}:</strong> ${escapeHtml(text)}</p>`;
-    await client!.writeJournalPage(currentJournalId, { content: newLine });
+    const html = `<p><strong>${escapeHtml(username)}:</strong> ${escapeHtml(text)}</p>`;
+    await client!.appendJournalPage(currentJournalId!, currentPageName, html);
 
     console.log(`[Foundry] Saved — ${username}: ${text}`);
   } catch (err) {
