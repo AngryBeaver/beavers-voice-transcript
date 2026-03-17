@@ -22,12 +22,10 @@
   "dependencies": {
     "@discordjs/opus": "^0.10.0",
     "@discordjs/voice": "^0.19.1",
-    "beavers-ai-assistant-client": "*",
-    "beavers-voice-transcript-client": "^1.0.1",
+    "beavers-voice-transcript-client": "*",
     "discord.js": "^14.25.1",
     "dotenv": "^17.3.1",
-    "form-data": "^4.0.5",
-    "node-fetch": "^3.3.2",
+
     "prism-media": "^1.3.5",
     "socket.io-client": "^4.8.3"
   }

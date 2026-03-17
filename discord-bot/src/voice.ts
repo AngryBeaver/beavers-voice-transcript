@@ -43,9 +43,17 @@ function listenToUser(receiver: VoiceReceiver, userId: string, displayName: stri
     end: { behavior: EndBehaviorType.AfterSilence, duration: SILENCE_TIMEOUT_MS },
   });
 
+  opusStream.on('error', (err) => {
+    console.warn(`[Voice] Opus stream error for ${displayName}: ${err.message}`);
+  });
+
   const pcmStream = opusStream.pipe(
     new prism.opus.Decoder({ rate: 48000, channels: 1, frameSize: 960 }),
   );
+
+  pcmStream.on('error', (err) => {
+    console.warn(`[Voice] PCM stream error for ${displayName}: ${err.message}`);
+  });
 
   buildWavBuffer(pcmStream, async (buffer) => {
     if (buffer.length < 4096) return;
