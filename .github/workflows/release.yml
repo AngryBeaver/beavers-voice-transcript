@@ -89,6 +89,8 @@ jobs:
 
       - run: npm install -g npm@latest
 
+      - run: npm install
+
       - run: npm pkg set version=${{ needs.release.outputs.version }}
 
       - run: npm publish --provenance --access public
