@@ -30,9 +30,7 @@ export class ChatBubbleApi {
     if (direct) return direct;
 
     // Fall back: find a user whose name matches, then look for their character's token
-    const user = (game.users as any).find(
-      (u: any) => u.name === nameOrId,
-    );
+    const user = (game.users as any).find((u: any) => u.name === nameOrId);
     if (!user?.character) return undefined;
     return tokens.find((t) => t.actor?.id === user.character.id);
   }

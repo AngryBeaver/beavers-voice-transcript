@@ -112,7 +112,7 @@ function listenToUser(
         console.log(`[PAUSED] [${displayName}]: ${transcript}`);
       }
     } catch (err) {
-      console.error(`[Voice] Processing error for ${displayName}: ${(err as Error).message}`,err);
+      console.error(`[Voice] Processing error for ${displayName}: ${(err as Error).message}`, err);
     } finally {
       cleanup();
     }
