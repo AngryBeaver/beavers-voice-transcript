@@ -23,7 +23,6 @@ export class ChatBubbleApi {
 
     // Try direct matches first: token/actor id, token name, actor name
     const direct =
-      tokens.find((t) => t.id === nameOrId) ??
       tokens.find((t) => t.actor?.id === nameOrId) ??
       tokens.find((t) => t.name === nameOrId) ??
       tokens.find((t) => t.actor?.name === nameOrId);
