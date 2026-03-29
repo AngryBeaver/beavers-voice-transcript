@@ -134,6 +134,10 @@ export class AiAssistantSettingsApp extends foundry.applications.api
     content.replaceChildren(result);
   }
 
+  _replaceContent(result: HTMLElement, content: HTMLElement, _options: object): void {
+    content.replaceChildren(result);
+  }
+
   static async _onSave(this: AiAssistantSettingsApp): Promise<void> {
     const enabled = (this.element.querySelector('#ai-enabled') as HTMLInputElement).checked;
     const claudeApiKey = (

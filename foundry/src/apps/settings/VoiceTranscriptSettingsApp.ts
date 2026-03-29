@@ -94,6 +94,10 @@ export class VoiceTranscriptSettingsApp extends foundry.applications.api
     content.replaceChildren(result);
   }
 
+  _replaceContent(result: HTMLElement, content: HTMLElement, _options: object): void {
+    content.replaceChildren(result);
+  }
+
   static async _onCopyUserId(this: VoiceTranscriptSettingsApp): Promise<void> {
     // @ts-ignore
     const user = game.users.find((u: any) => u.name === AI_ASSISTANT_USER_NAME);

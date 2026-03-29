@@ -2,6 +2,17 @@ declare namespace foundry {
   namespace utils {
     function randomID(length?: number): string;
   }
+  namespace applications {
+    namespace api {
+      class ApplicationV2<TContext = object> {
+        element: HTMLElement;
+        render(options?: { force?: boolean }): Promise<this>;
+        close(options?: object): Promise<this>;
+        // v14 rename of _replaceHTML
+        _replaceContent(result: HTMLElement, content: HTMLElement, options: object): void;
+      }
+    }
+  }
 }
 
 interface BeaversAiGame extends foundry.Game {
