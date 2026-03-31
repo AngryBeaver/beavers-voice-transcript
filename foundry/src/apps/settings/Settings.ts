@@ -40,12 +40,6 @@ export class Settings {
       type: Boolean,
       default: false,
     });
-    game.settings.register(NAMESPACE, SETTINGS.SESSION_JOURNAL_FOLDER, {
-      scope: 'world',
-      config: false,
-      type: String,
-      default: DEFAULTS.SESSION_JOURNAL_FOLDER,
-    });
 
     // ai assistant
     game.settings.register(NAMESPACE, SETTINGS.AI_ASSISTANT_ENABLED, {
@@ -77,12 +71,6 @@ export class Settings {
       config: false,
       type: String,
       default: '',
-    });
-    game.settings.register(NAMESPACE, SETTINGS.ADVENTURE_INDEX_JOURNAL_NAME, {
-      scope: 'world',
-      config: false,
-      type: String,
-      default: DEFAULTS.ADVENTURE_INDEX_JOURNAL_NAME,
     });
   }
 

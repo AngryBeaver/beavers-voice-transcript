@@ -1,0 +1,73 @@
+<form style="max-height:60vh;overflow-y:auto;box-sizing:border-box">
+  <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1.25rem;padding:.75rem">
+    <input type="checkbox" id="ai-enabled" name="enabled" {{#if enabled}}checked{{/if}}
+      style="width:1.1em;height:1.1em;cursor:pointer">
+    <label for="ai-enabled" style="font-weight:bold;margin:0;cursor:pointer">Enable AI Assistant</label>
+  </div>
+
+  <fieldset style="margin:5px 0px;">
+    <legend>AI Tool</legend>
+    <div class="form-group">
+      <label>Claude API Key:</label>
+      <div class="form-fields">
+        <input type="password" id="ai-api-key" name="claudeApiKey" value="{{claudeApiKey}}"
+          placeholder="sk-ant-…" data-dtype="String">
+      </div>
+      <p class="notes hint">Anthropic API key. Required for AI GM suggestions.</p>
+    </div>
+    <div class="form-group">
+      <label>Claude Model:</label>
+      <div class="form-fields">
+        <input type="text" id="ai-model" name="claudeModel" value="{{claudeModel}}" data-dtype="String">
+      </div>
+      <p class="notes hint">Model ID to use for AI GM suggestions (e.g. {{defaultClaudeModel}}).</p>
+    </div>
+  </fieldset>
+
+  <fieldset style="margin:5px 0px;">
+    <legend>Session</legend>
+    {{#unless voiceTranscriptEnabled}}
+    <div style="padding:.5rem .75rem;background:var(--color-level-warning-bg,#fff3cd);
+                border:1px solid var(--color-level-warning,#e6ac00);border-radius:4px;
+                font-size:.875em;margin-bottom:.75rem">
+      <i class="fas fa-triangle-exclamation"></i>
+      <strong>Voice Transcript is not enabled.</strong>
+      Session context requires Voice Transcript. The <em>Interact</em> button will not be
+      available in the AI GM Window until Voice Transcript is enabled.
+    </div>
+    {{/unless}}
+    <div class="form-group">
+      <label>Context Size:</label>
+      <div class="form-fields">
+        <input type="number" id="ai-context-size" name="sessionHistoryMessages" value="{{sessionHistoryMessages}}"
+          min="1" max="200" data-dtype="Number">
+      </div>
+      <p class="notes hint">How many recent session messages to include in AI context. The session summary journal is stored automatically as <code>AI-Summary</code> and is not configurable.</p>
+    </div>
+  </fieldset>
+
+  <fieldset style="margin:5px 0px;">
+    <legend>Adventure</legend>
+    <div class="form-group">
+      <label>Adventure Journal Folder:</label>
+      <div class="form-fields">
+        <input type="text" id="ai-adventure-folder" name="adventureJournalFolder" value="{{adventureJournalFolder}}"
+          placeholder="(optional)" data-dtype="String">
+      </div>
+      <p class="notes hint">Folder containing adventure/lore journals. Leave blank for emergent campaigns.</p>
+    </div>
+    <div class="form-group">
+      <div class="form-fields">
+        <button type="button" data-action="buildLoreIndex" style="width:100%">
+          <i class="fas fa-wand-magic-sparkles"></i> Build Lore Index
+        </button>
+      </div>
+    </div>
+  </fieldset>
+
+  <div style="display:flex;justify-content:flex-end;margin-top:1.25rem">
+    <button type="submit" data-action="save" style="min-width:80px">
+      <i class="fas fa-save"></i> Save
+    </button>
+  </div>
+</form>

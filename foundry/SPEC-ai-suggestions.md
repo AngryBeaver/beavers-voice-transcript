@@ -152,35 +152,96 @@ There are two distinct use cases for `adventureJournalFolder`, and the module be
 **Graceful degradation without adventure journals:**
 If `adventureJournalFolder` is not set, the lore column is omitted from context entirely. The AI works from scene notes, session chat, session summary, and actor flags alone.
 
-#### Lore index
+#### Lore index (hierarchical, scene-aware)
 
 For pre-written adventures, a lore index is built once and reused on every Interact call. It contains only **stable world content** — what exists in the adventure as written. Current plot state, what the party has done, and where events stand belong in the session summary, not the index.
 
 **Structure stored in `adventureIndexJournalName`:**
-```
-## Locations
-- The Rusty Flagon (inn, Millhaven) — run by Aldric; common gathering spot for travellers
-- Blackroot Farm — outlying farm north of Millhaven; owned by Jorin
 
-## NPCs
+The index is hierarchical, organized by adventure parts → scenes, with a global World section:
+
+```
+## Part 1: The Arrival
+
+### Overview
+The party travels to Millhaven to investigate the strange happenings...
+
+### Scene 1: The Road to Millhaven
+#### Summary
+A three-day journey through farmland. The party encounters a patrol of town guards.
+
+#### NPCs Present
+- Guard Captain Thorne — stern, dutiful, protective of the realm
 - Aldric the Innkeeper — gruff, loyal, knows local gossip; soft spot for travellers in trouble
+
+#### Locations
+- Millhaven (town, safe)
+- Ashwood (forest north of town, dangerous)
+- The Broken Bridge (landmark, crossing point)
+
+#### Factions
+- Red Tooth Goblins — tribal raiders from the Ashwood; led by Skrix
+
+### Scene 2: The Innkeeper's Secrets
+#### Summary
+At the Rusty Flagon inn, Aldric reveals local rumors about missing farmers and strange lights.
+
+#### NPCs Present
+- Aldric the Innkeeper
+- Mira the Barmaid — Aldric's niece, curious, listens to gossip
+
+#### Locations
+- The Rusty Flagon (inn in Millhaven)
+- Town Square (adjacent)
+
+#### Factions
+- The Merchant Guild (controls trade)
+
+[... more scenes ...]
+
+## World (Global Context)
+
+### All NPCs
+- Aldric the Innkeeper — gruff, loyal, knows local gossip; soft spot for travellers
 - Mira the Barmaid — Aldric's niece, curious and talkative
 - Jorin the Farmer — hardworking, distrusts outsiders
+- Guard Captain Thorne — stern, dutiful
+[... complete list ...]
 
-## Factions & Groups
-- Red Tooth Goblins — tribal raiders from the Ashwood; led by Skrix, motivated by hunger and fear
-- The Merchant Guild — controls trade in Millhaven; politically influential
+### All Locations
+- Millhaven (town, safe, center of commerce)
+- The Rusty Flagon (inn, Millhaven)
+- Blackroot Farm — outlying farm north of Millhaven; owned by Jorin
+- Ashwood (forest, dangerous, goblin territory)
+[... complete list ...]
+
+### All Factions
+- Red Tooth Goblins — tribal raiders; led by Skrix
+- The Merchant Guild — controls trade in Millhaven
+[... complete list ...]
 ```
 
 **Building the index:**
 - Triggered by a **Build Lore Index** button in the module settings
-- Claude reads all pages in `adventureJournalFolder` in a single call and produces the structured index
+- Claude reads all pages in `adventureJournalFolder` in a single call and produces the hierarchical structured index
 - The result is written as a page in `adventureIndexJournalName`
 - A **Rebuild** button re-runs the same process to pick up edits to the adventure journals
 - One-time cost: a 50,000-word adventure ≈ ~$0.20 to index
 
+**Scene selector (panel UI):**
+- A dropdown or button list in the AI GM Window showing all scenes from the lore index
+- GM clicks to confirm which scene they are currently in
+- Selection is cached and displayed for context
+- Updates context immediately without rebuilding
+
 **Usage in Interact:**
-The full lore index (~1,000–2,000 tokens) is included in context on every call when `adventureJournalFolder` is configured. No per-call scoring or filtering needed — the index is compact enough to include whole.
+When a scene is selected:
+- Include that scene's summary, NPCs, locations, and factions (~1,000 tokens)
+- Include the part's overview for continuity
+- Include the global World section (all NPCs, locations, factions lists) for reference
+- Total lore budget: ~2,000 tokens — much tighter and more relevant than a flat index
+
+If no scene is selected or no lore index exists, fall back to keyword-scored raw pages (budget: ~4,000 tokens).
 
 #### Lore filtering strategy (fallback — no index built)
 

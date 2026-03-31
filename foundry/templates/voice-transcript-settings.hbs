@@ -1,0 +1,47 @@
+<form style="max-height:60vh;overflow-y:auto;box-sizing:border-box">
+  <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1.25rem;padding:.75rem">
+    <input type="checkbox" id="vt-enabled" {{#if enabled}}checked{{/if}}
+      style="width:1.1em;height:1.1em;cursor:pointer">
+    <label for="vt-enabled" style="font-weight:bold;margin:0;cursor:pointer">Enable Voice Transcript</label>
+  </div>
+
+  <fieldset style="margin:5px 0px;">
+    <legend>AI Assistant Connection</legend>
+    <p style="margin-bottom:.75rem;font-size:.875em">
+      Use these credentials in your external tool's <code>.env</code> file.
+    </p>
+    <div class="form-group">
+      <label>FOUNDRY_USER (User ID):</label>
+      <div class="form-fields" style="display:flex;gap:.5rem;align-items:center">
+        <input type="text" value="{{userId}}" readonly style="flex:1"
+          data-dtype="String">
+        <button type="button" data-action="copyUserId" style="flex:0">
+          <i class="fas fa-copy"></i> Copy
+        </button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>FOUNDRY_PASS:</label>
+      <div class="form-fields" style="display:flex;gap:.5rem;align-items:center">
+        <input type="text" value="{{password}}" readonly style="flex:1"
+          data-dtype="String">
+        <button type="button" data-action="copyPassword" style="flex:0">
+          <i class="fas fa-copy"></i> Copy
+        </button>
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="form-fields">
+        <button type="button" data-action="regenerate" style="width:100%">
+          <i class="fas fa-sync"></i> Regenerate Password
+        </button>
+      </div>
+    </div>
+  </fieldset>
+
+  <div style="display:flex;justify-content:flex-end;margin-top:1.25rem">
+    <button type="submit" data-action="save" style="min-width:80px">
+      <i class="fas fa-save"></i> Save
+    </button>
+  </div>
+</form>

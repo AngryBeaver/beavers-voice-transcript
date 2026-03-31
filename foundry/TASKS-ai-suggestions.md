@@ -46,19 +46,19 @@ Two custom `ApplicationV2` settings apps, each opened via a **Configure** menu b
 
 ## Step 3 — Context assembly
 
-- [ ] Create `ContextBuilder.ts`
-- [ ] Reads active scene name + GM notes from `game.scenes.active`
-- [ ] Reads last N session journal entries (N from `sessionHistoryMessages` setting)
-- [ ] Reads latest page of `AI-Summary` journal in the session folder (path: `{sessionJournalFolder}/AI-Summary`)
-- [ ] Reads all actors from `game.actors` (name, type, description) — general world context; actor flags are persona-only and are NOT read here
-- [ ] If lore index is configured: reads lore index journal for NPC/location/faction entries; if not configured, falls back to keyword-scored raw lore pages
-- [ ] Returns assembled prompt string
-- [ ] Handles missing/empty sources gracefully (missing scene notes, no summary yet, no actors, no lore)
-- [ ] Write unit tests in `ContextBuilder.test.ts` using `vi.stubGlobal` for `game.*`
+- [x] Create `ContextBuilder.ts`
+- [x] Reads active scene name + GM notes from `game.scenes.active`
+- [x] Reads last N session journal entries (N from `sessionHistoryMessages` setting)
+- [x] Reads latest page of `AI-Summary` journal in the session folder (path: `{sessionJournalFolder}/AI-Summary`)
+- [x] Reads all actors from `game.actors` (name, type, description) — general world context; actor flags are persona-only and are NOT read here
+- [x] If lore index is configured: reads lore index journal for NPC/location/faction entries; if not configured, falls back to keyword-scored raw lore pages
+- [x] Returns assembled prompt string
+- [x] Handles missing/empty sources gracefully (missing scene notes, no summary yet, no actors, no lore)
+- [x] Write unit tests in `ContextBuilder.test.ts` — `GameData` injected via constructor, no `vi.stubGlobal` needed (20 tests passing)
 
 ---
 
-## Step 4 — Infer current interaction
+## Step 4 —Infer current interaction
 
 - [ ] Create `ClaudeApi.ts` with a `call()` method
 - [ ] On **Interact** press: send assembled context to Claude; ask Claude to infer what is currently happening and who the party is interacting with — returns 1–3 candidates (NPC name + what the party is asking or doing)
@@ -116,13 +116,64 @@ Two custom `ApplicationV2` settings apps, each opened via a **Configure** menu b
 
 ---
 
-## Step 9 — Lore index
+## Step 9 — Lore index (hierarchical, scene-aware)
 
+### Build phase
 - [ ] Add **Build Lore Index** button to module settings
-- [ ] On click: read all pages in `adventureJournalFolder`, send to Claude in a single call, produce structured index (Locations, NPCs, Factions — stable world content only, no plot state)
+- [ ] On click: read all pages in `adventureJournalFolder`, send to Claude in a single call
+- [ ] Claude produces hierarchical index structure:
+  ```
+  ## Part 1: The Arrival
+
+  ### Overview
+  [summary of the part]
+
+  ### Scene 1: The Road to Millhaven
+  #### Summary
+  [scene summary]
+
+  #### NPCs Present
+  - Aldric the Innkeeper — gruff, loyal
+  - Guard Captain — stern, duty-bound
+
+  #### Locations
+  - Millhaven (town, safe)
+  - Ashwood (forest, dangerous)
+
+  #### Factions
+  - Red Tooth Goblins (threat)
+
+  ### Scene 2: The Innkeeper's Secrets
+  [etc.]
+
+  ## World (Global Context)
+
+  ### All NPCs
+  [complete list with descriptions]
+
+  ### All Locations
+  [complete list]
+
+  ### All Factions
+  [complete list]
+  ```
 - [ ] Write index as a page in `adventureIndexJournalName`
 - [ ] Add **Rebuild** button alongside Build — same flow, overwrites existing index
-- [ ] Plug lore index into `ContextBuilder`: if index exists, include it whole; if not, fall back to keyword-scored raw pages (budget: ~4,000 tokens)
+
+### UI phase
+- [ ] Add scene selector to AI GM Window: dropdown/buttons listing all scenes from lore index ("Scene 1: The Road...", "Scene 2: ...", etc.)
+- [ ] GM clicks to confirm which scene they are currently in — selection is cached until changed
+- [ ] Selected scene name displayed above the Interact button for context
+
+### Context filtering phase
+- [ ] Extend `ContextBuilder.build()` to accept optional `selectedScene` parameter
+- [ ] If `selectedScene` is set and lore index exists:
+  - Extract that scene's section (Summary, NPCs, Locations, Factions)
+  - Include scene-specific context (high relevance, ~1,000 tokens)
+  - Include the part's overview
+  - Include global World section (NPCs, Locations, Factions lists)
+  - Total lore budget: ~2,000 tokens (much tighter than flat index)
+- [ ] If no scene selected or no lore index: fall back to keyword-scored raw pages (budget: ~4,000 tokens)
 - [ ] If `adventureJournalFolder` is not configured, omit lore from context entirely
 
 ---
