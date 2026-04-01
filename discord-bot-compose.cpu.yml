@@ -1,3 +1,14 @@
+# Discord Bot Compose (CPU version)
+#
+# Run with: docker compose -f discord-bot-compose.cpu.yml up -d
+#
+# For low-resource setups. Whisper uses the smaller 'base' model (CPU inference).
+# Foundry URL assumes Foundry is running on the same machine as Docker (host.docker.internal).
+#
+# Requires:
+#   - Discord bot .env file at ./discord-bot/.env
+#   - Environment variables: DISCORD_TOKEN, FOUNDRY_USER, FOUNDRY_PASS, FOUNDRY_API_KEY
+
 services:
   whisper:
     image: whisper-asr-webservice:latest
@@ -10,7 +21,7 @@ services:
 
   discord-bot:
     build:
-      context: ..
+      context: .
       dockerfile: ./Dockerfile
     env_file: ./discord-bot/.env
     environment:

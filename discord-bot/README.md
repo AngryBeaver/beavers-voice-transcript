@@ -4,42 +4,23 @@ Listens to a Discord voice channel, transcribes speech with a local Whisper inst
 
 ---
 
-## Quick Start (GPU)
+## Quick Start (Docker)
 
-Create a `docker-compose.yml` and a `.env` file in the same directory.
+> **See [Docker Setup Guide](../DOCKER-SETUP.md)** for detailed multi-PC architecture and setup options.
 
-### docker-compose.yml
+### GPU (recommended)
 
-```yaml
-services:
-  whisper:
-    image: onerahmet/openai-whisper-asr-webservice:latest-gpu
-    ports:
-      - "9000:9000"
-    environment:
-      - ASR_MODEL=${WHISPER_MODEL:-base}
-      - ASR_ENGINE=openai_whisper
-    restart: unless-stopped
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
+```bash
+docker compose -f ../discord-bot-compose.yml up -d
+```
 
-  discord-bot:
-    image: angrybeaver/discord-foundry-bot:latest
-    env_file: .env
-    environment:
-      - WHISPER_URL=http://whisper:9000
-    depends_on:
-      - whisper
-    restart: unless-stopped
+### CPU-only (slower, lower quality)
+
+```bash
+docker compose -f ../discord-bot-compose.cpu.yml up -d
 ```
 
 > GPU requires the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html).
-> For CPU-only, remove the `deploy` block and use `onerahmet/openai-whisper-asr-webservice:latest`.
 
 ## Setup
 ### Discord Setup

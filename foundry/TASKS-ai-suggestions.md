@@ -119,9 +119,9 @@ Two custom `ApplicationV2` settings apps, each opened via a **Configure** menu b
 ## Step 9 — Lore index (hierarchical, scene-aware)
 
 ### Build phase
-- [ ] Add **Build Lore Index** button to module settings
-- [ ] On click: read all pages in `adventureJournalFolder`, send to Claude in a single call
-- [ ] Claude produces hierarchical index structure:
+- [x] Add **Build Lore Index** button to module settings
+- [x] On click: read all pages in `adventureJournalFolder`, send to Claude in a single call
+- [x] Claude produces hierarchical index structure:
   ```
   ## Part 1: The Arrival
 
@@ -157,9 +157,11 @@ Two custom `ApplicationV2` settings apps, each opened via a **Configure** menu b
   ### All Factions
   [complete list]
   ```
-- [ ] Write index as a page in `adventureIndexJournalName`
-- [ ] Add **Rebuild** button alongside Build — same flow, overwrites existing index
-
+- [x] Write index as a page in `adventureIndexJournalName`
+## Step 10 
+### TODO REFINE
+### Parse visual Maps
+- [] Connect Journal Scene Parts with each other 
 ### UI phase
 - [ ] Add scene selector to AI GM Window: dropdown/buttons listing all scenes from lore index ("Scene 1: The Road...", "Scene 2: ...", etc.)
 - [ ] GM clicks to confirm which scene they are currently in — selection is cached until changed
@@ -192,3 +194,51 @@ Two custom `ApplicationV2` settings apps, each opened via a **Configure** menu b
 - [x] Trigger on push and pull request to `main`
 - [x] Steps: checkout → install pnpm → `pnpm install` → `pnpm test`
 - [x] Fail the workflow if any vitest test fails
+
+---
+
+## AiService abstraction and testing
+
+- [x] Create `AiService.ts` interface with `call()` and `stream()` methods
+- [x] Create `ClaudeService.ts` implementing AiService (Anthropic SDK)
+- [x] Create `LocalAiService.ts` implementing AiService (OpenAI-compatible endpoint)
+- [x] Create `createAiService(game)` factory function for provider selection
+- [x] Add unit tests for ClaudeService with mocked Anthropic SDK
+- [x] Add unit tests for LocalAiService with mocked OpenAI SDK
+- [x] Add integration tests for real Claude API (skipped unless CLAUDE_API_KEY set)
+- [x] Add integration tests for real LocalAI server (skipped unless LOCAL_AI_URL set)
+- [x] Add smoke tests for services/index exports
+
+---
+
+## LocalAI setup and documentation
+
+- [x] Create Docker Compose files: `ai-assistant-compose.yml` (GPU), `ai-assistant-compose.cpu.yml` (CPU)
+- [x] Create `DOCKER-SETUP.md` with LocalAI deployment guide
+- [x] Document two-PC architecture (Discord bot + LocalAI on separate machine)
+- [x] Document model recommendations (mistral, neural-chat, phi-3:mini)
+- [x] Document hardware requirements and cost comparisons (Claude API vs LocalAI vs CPU-only)
+- [x] Document Whisper setup for voice transcription
+- [x] Include troubleshooting section for common LocalAI issues
+
+---
+
+## Provider switching and settings UI
+
+- [x] Add `SETTINGS.AI_PROVIDER` (claude/local-ai) to definitions
+- [x] Add `SETTINGS.LOCAL_AI_URL` and `SETTINGS.LOCAL_MODEL` to definitions
+- [x] Register provider settings in `Settings.ts`
+- [x] Update `AiAssistantSettingsApp.ts` with provider dropdown selector
+- [x] Add JavaScript event listener for instant show/hide of provider-specific sections
+- [x] Add LocalAI server URL field (text input with Docker default)
+- [x] Add LocalAI model selector (dropdown: mistral, neural-chat, phi-3:mini)
+- [x] Ensure settings persist without window reload on save
+- [x] Add `Build Lore Index` button wired to LoreIndexBuilder
+
+---
+
+## Integration with LoreIndexBuilder
+
+- [x] Refactor `LoreIndexBuilder.ts` to use `createAiService(game)` instead of static ClaudeApi
+- [x] Support both Claude and LocalAI providers for lore index generation
+- [x] Maintain hierarchical index structure (Parts → Scenes → NPCs/Locations/Factions + World)

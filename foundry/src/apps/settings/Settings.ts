@@ -48,6 +48,12 @@ export class Settings {
       type: Boolean,
       default: false,
     });
+    game.settings.register(NAMESPACE, SETTINGS.AI_PROVIDER, {
+      scope: 'world',
+      config: false,
+      type: String,
+      default: DEFAULTS.AI_PROVIDER,
+    });
     game.settings.register(NAMESPACE, SETTINGS.CLAUDE_API_KEY, {
       scope: 'world',
       config: false,
@@ -59,6 +65,18 @@ export class Settings {
       config: false,
       type: String,
       default: DEFAULTS.CLAUDE_MODEL,
+    });
+    game.settings.register(NAMESPACE, SETTINGS.LOCAL_MODEL, {
+      scope: 'world',
+      config: false,
+      type: String,
+      default: DEFAULTS.LOCAL_MODEL,
+    });
+    game.settings.register(NAMESPACE, SETTINGS.LOCAL_AI_URL, {
+      scope: 'world',
+      config: false,
+      type: String,
+      default: DEFAULTS.LOCAL_AI_URL,
     });
     game.settings.register(NAMESPACE, SETTINGS.SESSION_HISTORY_MESSAGES, {
       scope: 'world',

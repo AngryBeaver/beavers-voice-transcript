@@ -26,13 +26,21 @@ export const SETTINGS = {
 
   // AI Assistant
   AI_ASSISTANT_ENABLED: 'aiAssistantEnabled',
+  AI_PROVIDER: 'aiProvider',
   CLAUDE_API_KEY: 'claudeApiKey',
   CLAUDE_MODEL: 'claudeModel',
+  LOCAL_MODEL: 'localModel',
+  LOCAL_AI_URL: 'localAiUrl',
   SESSION_HISTORY_MESSAGES: 'sessionHistoryMessages',
   ADVENTURE_JOURNAL_FOLDER: 'adventureJournalFolder',
 } as const;
 
+export type AiProvider = 'claude' | 'local-ai';
+
 export const DEFAULTS = {
+  AI_PROVIDER: 'claude' as AiProvider,
   CLAUDE_MODEL: 'claude-sonnet-4-6',
+  LOCAL_MODEL: 'mistral',
+  LOCAL_AI_URL: 'http://localhost:8000',
   SESSION_HISTORY_MESSAGES: 30,
 } as const;

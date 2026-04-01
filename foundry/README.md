@@ -5,6 +5,8 @@
 ![Download Count](https://img.shields.io/github/downloads/AngryBeaver/beavers-voice-transcript/total?color=green)
 
 ![AI Powered](https://img.shields.io/badge/AI-Claude-blueviolet)
+![Voice ASR](https://img.shields.io/badge/Voice%20ASR-Whisper-green)
+![Local LLM](https://img.shields.io/badge/Local%20LLM-Mistral-blue)
 ![Setup Complexity](https://img.shields.io/badge/setup%20complexity-5%2F5-red)
 
 An AI assistant is only as useful as the context it has. If a GM has to stop mid-session to explain who the party is, what just happened, and what the NPC's personality is — the AI is more burden than help.
@@ -17,28 +19,40 @@ Two features work together to make this possible:
 2. **AI GM Window** — a GM-only panel that reads the current game state and suggests persona-accurate NPC responses, building a persistent picture of the campaign over time.
 
 ---
+## ⚠️ Setup ⚠️
 
-## ⚠ Requirements — Hard to Set Up
+<div style="background-color: #171713; border-left: 4px solid #e68a00; padding: 15px; margin: 10px 0; border-radius: 4px;">
 
-> **Do not think you can just install this module and everything will work.**
->
-> This module is aimed at skilled people who are comfortable with servers, Docker, APIs, and self-hosted infrastructure. If you have no idea what the requirements listed below are, this module is not for you.
->
-> For everyone else: give your AI assistant this documentation and it will likely be able to guide you through the setup.
+**⚠️ High Complexity Warning ⚠️**
+This module is aimed at skilled people who are comfortable with servers, Docker, APIs, and self-hosted infrastructure. If you have no idea what the requirements listed below are, **this module is not for you**.
+</div>
+For everyone else: feed this documentation to your AI of choice (ChatGPT, Claude, etc.) and it will likely be able to guide you through the setup.
 
-### What you need before installing
 
-| Requirement | Details |
-|---|---|
-| **Discord account & own server** | The voice transcript feature uses a Discord bot in your own server to capture session audio. You need admin rights to add bots. |
-| **Local Docker environment** | Whisper ASR runs in a Docker container on your machine or a local server. You need Docker installed and running. |
-| **NVIDIA GPU with ≥ 8 GB VRAM** | Real-time speech-to-text at a usable accuracy level (Whisper `medium` or larger) requires a dedicated NVIDIA GPU. CPU transcription is too slow for live use. |
-| **Anthropic API key (Claude)** | The AI GM Window calls the Claude API. You need an account at [anthropic.com](https://anthropic.com) and a funded API key. |
+### Zero API Cost Setup (Crush it with Hardware)
 
-None of these are optional. The module has two features and each has hard dependencies:
+You do NOT need to pay for any AI service if you have sufficient NVIDIA GPUs.
 
-- **Voice Transcript** — requires Discord bot + Docker + Whisper + GPU
-- **AI GM Window** — requires Anthropic API key
+If you have:
+- Two NVIDIA GPUs with ≥ 8 GB VRAM each (one for Whisper, one for LocalAI)
+- ONE NVIDIA GPUs with ≥ 16 GB VRAM (run Whisper and LocalAI)
+
+### Requirements
+
+| Requirement                        | Details                                                                                                                         |
+|------------------------------------|---------------------------------------------------------------------------------------------------------------------------------|
+| **Own discord server**             | The voice transcript feature uses a Discord bot in your own server to capture session audio. You need admin rights to add bots. |
+| **Local Docker environment**       | Whisper ASR + LocalAI run in Docker containers. You need Docker installed and running.                                          |
+| **NVIDIA GPU #1 with ≥ 8 GB VRAM** | **Required** for real-time speech-to-text (Whisper `medium` or larger). CPU is too slow for live sessions.                      |
+| **NVIDIA GPU #2 with ≥ 8 GB VRAM** | **(Option A)** For free LocalAI LLM                                                                                             |
+| **Anthropic API key**              | **(Option B)** If you do not have enought hardware or you want better models results                                            |
+
+See [Docker Setup Guide](../DOCKER-SETUP.md).
+
+The module has two features with separate dependencies:
+
+- **Voice Transcript** — requires Discord bot + Docker + Whisper + **GPU #1**
+- **AI GM Window** — requires Claude API key **OR** Docker + LocalAI + **GPU #2**
 
 ---
 
@@ -118,22 +132,35 @@ Accepted responses are stored in actor flags so the AI builds a persistent pictu
 
 ### Requirements
 
-- An **Anthropic API key** (Claude)
+Choose **one** AI service:
+
+| Service | Cost | Setup | Quality | Speed |
+|---|---|---|---|---|
+| **Claude (Anthropic API)** | $1–5/month | API key | Excellent | Real-time |
+| **LocalAI (Docker)** | $0 (electricity) | Docker container | Good | Medium (30–60 sec) |
+
 - Session journals written by the Discord bot (or manually) in the format `YYYY-MM-DD — Session`
 
 ### Setup
 
-Under **Settings → Configure Settings → Beaver's AI Assistant**:
+1. **Start your AI service:**
+   - **Claude:** Create an account at [anthropic.com](https://anthropic.com) and get an API key.
+   - **LocalAI:** See [Docker Setup Guide](../DOCKER-SETUP.md) — run LocalAI in Docker on your Foundry PC.
 
-| Setting | Description |
-|---|---|
-| Claude API Key | Your Anthropic API key. Required. |
-| Claude Model | Model ID. Defaults to `claude-sonnet-4-6`. |
-| Session Journal Folder | Folder containing session journals. Required. |
-| Session History Messages | How many recent journal entries to include in AI context. Default: 30. |
-| Summary Journal Name | Journal for AI-generated session summaries. Default: `AI Session Summary`. |
-| Adventure Journal Folder | Folder with adventure/lore journals. Optional — leave blank for emergent campaigns. |
-| Lore Index Journal Name | Journal for the pre-built lore index. Default: `AI Lore Index`. |
+2. **Configure the module:**
+
+Under **Settings → Configure Settings → Beaver's AI Assistant → AI Assistant → Configure**:
+
+| Setting | Claude | LocalAI |
+|---|---|---|
+| **AI Provider** | Claude (Anthropic API) | Local AI (Docker) |
+| **Claude API Key** | Your Anthropic API key | *(not needed)* |
+| **Local AI URL** | *(not needed)* | `http://localhost:8000` |
+| **Claude Model** | `claude-sonnet-4-6` (or other Claude model) | `mistral` (or your loaded model) |
+| **Session Journal Folder** | Folder with session journals | Folder with session journals |
+| **Session History Messages** | How many recent entries to include (default: 30) | How many recent entries to include (default: 30) |
+| **Adventure Journal Folder** | (Optional) Pre-written adventure journals | (Optional) Pre-written adventure journals |
+| **Lore Index Journal Name** | Name for the built index (default: `AI Lore Index`) | Name for the built index (default: `AI Lore Index`) |
 
 ### Lore Index (optional, pre-written adventures)
 

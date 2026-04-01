@@ -33,6 +33,8 @@ Requires an **Anthropic API key** — configured in module settings.
 2. The module auto-creates an **ai-assistant** user and shows its credentials in the module settings.
 3. Run the **Discord bot** (`discord-bot/`) — it joins your voice channel, transcribes speech via a local [Whisper](https://github.com/openai/whisper) instance, and writes transcripts to Foundry journals.
 
+See **[Docker Setup Guide](./DOCKER-SETUP.md)** for instructions on running both components locally (zero API cost).
+
 The bot starts in **listen-only mode** and is controlled by voice commands:
 
 | Voice command | Action |

@@ -7,21 +7,77 @@
 
   <fieldset style="margin:5px 0px;">
     <legend>AI Tool</legend>
+
     <div class="form-group">
-      <label>Claude API Key:</label>
+      <label for="ai-provider">AI Provider:</label>
       <div class="form-fields">
-        <input type="password" id="ai-api-key" name="claudeApiKey" value="{{claudeApiKey}}"
-          placeholder="sk-ant-…" data-dtype="String">
+        <select id="ai-provider" name="aiProvider" data-dtype="String" style="width:100%">
+          <option value="claude" {{#if (eq aiProvider "claude")}}selected{{/if}}>
+            Claude (Anthropic API)
+          </option>
+          <option value="local-ai" {{#if (eq aiProvider "local-ai")}}selected{{/if}}>
+            Local AI
+          </option>
+        </select>
       </div>
-      <p class="notes hint">Anthropic API key. Required for AI GM suggestions.</p>
+      <p class="notes hint">Choose your AI inference provider. Switch anytime without losing settings.</p>
     </div>
-    <div class="form-group">
-      <label>Claude Model:</label>
-      <div class="form-fields">
-        <input type="text" id="ai-model" name="claudeModel" value="{{claudeModel}}" data-dtype="String">
+
+    <div id="claude-section" style="display:{{#if isClaudeProvider}}block{{else}}none{{/if}}">
+      <div class="form-group">
+        <label>Claude API Key:</label>
+        <div class="form-fields">
+          <input type="password" id="ai-api-key" name="claudeApiKey" value="{{claudeApiKey}}"
+            placeholder="sk-ant-…" data-dtype="String" style="font-family:monospace">
+        </div>
+        <p class="notes hint"><i class="fas fa-key"></i>
+          Your Anthropic API key. Required to use Claude.
+        </p>
       </div>
-      <p class="notes hint">Model ID to use for AI GM suggestions (e.g. {{defaultClaudeModel}}).</p>
+      <div class="form-group">
+        <label>Model Name:</label>
+        <div class="form-fields">
+          <input type="text" id="claude-model" name="claudeModel" value="{{claudeModel}}" data-dtype="String" style="font-family:monospace">
+        </div>
+        <p class="notes hint">
+          Claude model ID
+        </p>
+      </div>
     </div>
+
+    <div id="local-ai-section" style="display:{{#if isLocalAiProvider}}block{{else}}none{{/if}}">
+      <div class="form-group">
+        <label>Local AI Server URL:</label>
+        <div class="form-fields">
+          <input type="text" id="ai-local-url" name="localAiUrl" value="{{localAiUrl}}"
+            placeholder="{{defaultLocalAiUrl}}" data-dtype="String" style="font-family:monospace">
+        </div>
+        <p class="notes hint"><i class="fas fa-server"></i>
+          LocalAI/Ollama endpoint
+        </p>
+      </div>
+      <div class="form-group">
+        <label>Model Name:</label>
+        <div class="form-fields">
+          <select id="local-model" name="localModel" data-dtype="String" style="width:100%">
+            <option value="mistral" {{#if (eq localModel "mistral")}}selected{{/if}}>
+              mistral
+            </option>
+            <option value="neural-chat" {{#if (eq localModel "neural-chat")}}selected{{/if}}>
+              neural-chat
+            </option>
+            <option value="phi-3:mini" {{#if (eq localModel "phi-3:mini")}}selected{{/if}}>
+              phi-3:mini
+            </option>
+          </select>
+        </div>
+        <p class="notes hint">
+         LocalAI model name
+        </p>
+      </div>
+    </div>
+
+
   </fieldset>
 
   <fieldset style="margin:5px 0px;">

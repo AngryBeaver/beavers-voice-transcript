@@ -1,0 +1,44 @@
+# Discord Bot Compose (GPU version — Nvidia)
+#
+# Run with: docker compose -f discord-bot-compose.yml up -d
+#
+# For high-quality voice transcription with GPU acceleration.
+# Whisper uses the larger, more accurate 'large-v3-turbo' model.
+# Can run on a separate PC from the GM's Foundry (trusted host).
+#
+# Requires:
+#   - Nvidia GPU + drivers
+#   - NVIDIA Container Toolkit (https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
+#   - Discord bot .env file at ./discord-bot/.env
+#   - Environment variables: DISCORD_TOKEN, FOUNDRY_USER, FOUNDRY_PASS, FOUNDRY_API_KEY
+#   - Update FOUNDRY_URL below to your GM's Foundry server IP/hostname (if on different PC)
+
+services:
+  whisper:
+    image: whisper-asr-webservice:latest
+    ports:
+      - "9000:9000"
+    environment:
+      - ASR_MODEL=${WHISPER_MODEL:-large-v3-turbo}
+      - ASR_ENGINE=faster_whisper
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  discord-bot:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    env_file: ./discord-bot/.env
+    environment:
+      - WHISPER_URL=http://whisper:9000
+      # Update this to the GM's Foundry URL if running on a different machine:
+      - FOUNDRY_URL=http://host.docker.internal:13348
+    depends_on:
+      - whisper
+    restart: unless-stopped
