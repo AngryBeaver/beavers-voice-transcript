@@ -138,7 +138,6 @@ export class AiAssistantSettingsApp extends (foundry.applications.api.Handlebars
     const adventureJournalFolder = (
       this.element.querySelector('#ai-adventure-folder') as HTMLSelectElement
     ).value;
-
     await game.settings.set(NAMESPACE, SETTINGS.AI_ASSISTANT_ENABLED, enabled);
     await game.settings.set(NAMESPACE, SETTINGS.AI_PROVIDER, aiProvider);
     await game.settings.set(NAMESPACE, SETTINGS.CLAUDE_API_KEY, claudeApiKey);

@@ -16,11 +16,11 @@ large modules (token limits), wastes context on every Interact call, and loses h
 Adventures are organised as: **Adventure → Chapters (arcs) → Scenes → Sublocations/rooms**.
 The index mirrors this with three tiers of pages, each ~4 096 tokens:
 
-| Page | Content tone |
+| Page | Content |
 |---|---|
 | `Overview` | Global NPCs, factions, world context. Neutral — no visited/unvisited framing. |
 | `Chapter: <name>` | Arc summary. All scenes described neutrally — what they contain, who is in them, what the stakes are. |
-| `Scene: <name>` | Full detail — sublocations, NPCs present, what happens. Optional map layout appended by Phase 2. |
+| `Scene: <name>` | Full detail — sublocations, NPCs present, what happens. Optional map layout section appended by enrichment pass. |
 
 ### Context assembly per Interact call
 
@@ -33,8 +33,7 @@ Session summary — source of truth for what PCs have actually done
 
 The visited/unvisited framing is **not baked into the index**. The index is static and neutral.
 Call 1 (Situation Assessment) combines the chapter summary with the session summary at runtime
-and the AI infers which scenes are done (background context) vs not yet visited (foreshadowing/
-setup) from that combination.
+and the AI infers which scenes are done vs not yet visited from that combination.
 
 ### Revised Interact flow (two AI calls)
 
@@ -55,24 +54,295 @@ Output: streaming persona response → adjustment buttons → Accept.
 GM's only mandatory pre-session input: select the current chapter from a list derived from the
 index. The AI proposes the current scene from the session journal; GM corrects only if wrong.
 
-Input format is deliberately flexible — adventures can be one big journal, nested folders,
-headers-as-chapters, or any combination. The AI infers structure from heading hierarchy and
-folder/journal names (which `stripHtml` now preserves as `###`–`#######`).
+### Model roles
+
+Only the **Interact** model is stored persistently in settings. Indexing and vision models are
+chosen inside the wizard each run — no stored preference.
+
+| Role | Stored | When used |
+|---|---|---|
+| Interact | Yes — provider + model | Every NPC response, every session |
+| Index & Summarise | No — chosen in wizard | Lore build (one-off or chapter rebuild) |
+| Map Vision | No — chosen in wizard | Map enrichment pass (optional) |
 
 ---
 
-## Phase 1 — Text Index (required)
+## Settings restructure — AI Assistant settings app
 
-### Task 1.1 — Increase output token budget
+Sections appear conditionally based on what is enabled/configured:
 
-**File:** `foundry/src/modules/LoreIndexBuilder.ts`
+```
+AI Assistant settings app
+├── [Enable AI Assistant]
+│
+├── AI Interact  (always shown when enabled)
+│   ├── Provider selector (Claude / LocalAI)
+│   ├── Claude: API key, model
+│   └── LocalAI: URL, active model, install model, refresh
+│
+├── Session Recap  (shown only when Voice Transcript is enabled)
+│   └── History message count
+│
+└── Adventure Lore
+    └── [Open Lore Index Wizard]  → opens LoreIndexWizard
+```
 
-Replace the hardcoded `max_tokens: 4096` on the `_generateIndex` call with a configurable value.
-Add a new setting `loreIndexMaxTokens` (default `16384`) to `definitions.ts` and
-`AiAssistantSettingsApp`. Read it in `LoreIndexBuilder` instead of the hardcoded value.
+Adventure folder selection and max output tokens are part of the wizard, not stored settings.
+The button label may reflect state (no index / index exists) but the wizard handles everything.
 
-> Rationale: 4 096 output tokens hard-cuts large adventures mid-index with no error.
-> 16 384 covers most published modules; 32 768 is safe for very large ones.
+---
+
+## Phase 0 — Lore Index Wizard (new ApplicationV2)
+
+**Files:** `foundry/src/apps/LoreIndexWizard.ts` + `templates/lore-index-wizard.hbs`
+
+The wizard is the single entry point for all lore index operations: building, rebuilding chapters,
+and enriching scenes with map data. It is incremental and resumable — skipping a step always
+preserves existing data.
+
+Indexing and vision model choices are ephemeral (per-run, not stored in settings).
+
+---
+
+### Task 0.1 — Wizard shell and state detection
+
+Create `LoreIndexWizard.ts` as an `ApplicationV2`. Step state is held in instance variables.
+Navigation uses `_goToStep(name)` which re-renders the content area without closing the window.
+
+**Step: Location selection (always first)**
+
+Show a dropdown of all first-level items visible in Foundry — both folders and journals — so the
+GM can point the wizard at their adventure content regardless of how it is organised:
+
+```
+Where is your adventure content?
+[ dropdown: all root-level folders and journals ]
+[Continue]
+```
+
+The selected item (folder or journal) is stored in wizard state. Max output tokens is also
+configured here (number input, default 16 384, replaces the removed settings field).
+
+**Step: State detection (after location selected)**
+
+Inspect the lore index journal to determine what already exists for this adventure location:
+
+| State | Detection | Screen shown |
+|---|---|---|
+| No index | Index journal has no pages for this location | "No index found. Let's build one." → chapter detection |
+| Partial index | Some `Chapter:` pages exist but not all detected chapters | "Index incomplete. Continue or rebuild from scratch?" |
+| Full index | All detected chapters present | "Index is up to date." → [Rebuild chapters] [Update map enrichments] |
+
+---
+
+### Task 0.2 — Token / cost estimate
+
+Before model selection, collect all pages from the adventure folder and calculate:
+- Total character count
+- Estimated input tokens: `Math.ceil(chars / 4)`
+- For Claude: estimated cost at model's rate per 1M tokens (hardcoded approximate rate, labelled
+  as estimate)
+- For LocalAI: "Free (local inference)"
+
+Show in the opening screen so the GM can make an informed choice before selecting a model.
+
+---
+
+### Task 0.3 — Chapter detection and GM confirmation
+
+Chapter detection rules depend on what the GM selected in Step 0.1:
+
+**If a journal was selected:**
+- Chapters can only be headers within the journal's pages (`<h1>` or `<h2>` tags, preserved as
+  `###`/`####` by `stripHtml`)
+- Each distinct top-level heading group = one chapter candidate
+
+**If a folder was selected:**
+- Inspect folder contents:
+  - Contains only subfolders → each subfolder = one chapter candidate
+  - Contains only journals → each journal = one chapter candidate
+  - Contains both subfolders and journals → both are candidates; wizard shows them grouped and
+    lets the GM decide which to treat as chapters:
+    ```
+    Found mixed content — which should be chapters?
+      Folders: Chapter 1, Chapter 2, Appendix
+      Journals: Introduction, Credits
+    [Use folders as chapters]  [Use journals as chapters]  [Use both]
+    ```
+- If folder has no subfolders and no journals with detectable heading structure: treat entire
+  folder content as a single chapter
+
+Show detected chapters to GM for confirmation before indexing begins:
+
+```
+Chapters found — confirm before indexing:
+  ✓  Chapter 1: The Road to Millhaven
+  ✓  Chapter 2: The Goblin Den
+  ✓  Appendix: Bestiary
+  (untick any you want to skip entirely)
+[Start Indexing]
+```
+
+GM can untick chapters to exclude them permanently from this run.
+
+**Overview source — first folder heuristic:**
+
+Many published adventures place introductory material (world background, faction overview,
+GM notes, read-aloud context) in the first folder or first journal, separate from the playable
+chapters. The wizard detects this and flags it:
+
+```
+Possible introduction/background material found:
+  → "Chapter 0: Introduction" (first folder, no scene structure detected)
+  Use as source for the Overview page rather than indexing as a chapter?
+  [Yes — use as overview source]  [No — index it as a chapter]  [Skip entirely]
+```
+
+If the GM confirms it as overview source, this folder's content is fed into the Overview
+generation call instead of producing a `Chapter:` page. If the adventure has no such folder,
+the Overview is generated from all chapter summaries as normal.
+
+---
+
+### Task 0.4 — Model selection and LocalAI load indicator
+
+Shown once before the chapter-by-chapter indexing pass begins (and again separately before the
+map enrichment pass, since a different model may be chosen).
+
+**Provider selector: Claude | LocalAI**
+
+Claude branch:
+- Shows API key status (configured / missing)
+- Hint: "Reliable for large structured output. Costs apply — estimate shown above."
+
+LocalAI branch:
+- Shows installed models fetched from `GET /v1/models`
+- For indexing: recommended label on Qwen3.5-9B — "262k context, handles full adventure modules"
+- For vision: show only vision-capable models; recommended label on Qwen3-VL-8B-Instruct —
+  "Fast and accurate for map layouts. Use Instruct variant, not Thinking."
+- **Load indicator** when a model is selected that is not yet in the `/v1/models` response:
+
+```
+⏳ Loading qwen3.5-9b — this may take several minutes on first use.
+   Once loaded it stays resident in Docker until the container restarts.
+   [animated bar]
+```
+
+Poll `GET /v1/models` every 5 seconds. When the model appears, replace with:
+```
+✓ Model ready.
+```
+
+The [Continue] button is disabled until the model is confirmed ready (or Claude is selected).
+
+Model load indicator appears identically in both the indexing model step and the vision model
+step — same component, different context.
+
+---
+
+### Task 0.5 — Chapter-by-chapter indexing pass
+
+After model is confirmed ready, process chapters one at a time.
+
+For each chapter in the confirmed list:
+
+**If chapter page already exists in the index:**
+```
+Chapter 2: The Goblin Den — already indexed.
+[Rebuild this chapter]  [Skip → keep existing]
+```
+
+**If not yet indexed (or GM chose Rebuild):**
+Show live log while indexing:
+```
+→ Indexing Chapter 2: The Goblin Den…
+  ✓ Scene: The Cave Entrance
+  ✓ Scene: The Throne Room
+  ✓ Chapter summary written.
+```
+
+After each chapter completes, prompt for next:
+```
+Chapter 2 done. Next: Chapter 3 — The Sunken Temple.
+[Continue]  [Skip this chapter]  [Stop here]
+```
+
+[Stop here] exits the indexing pass early. Chapters already indexed are kept. Overview is not
+generated until all (non-skipped) chapters are done.
+
+After all chapters: generate Overview page → show summary:
+```
+✓ Index complete — 3 chapters, 14 scenes.
+[Continue to Map Enrichment]  [Finish]
+```
+
+---
+
+### Task 0.6 — Scene-by-scene map enrichment pass
+
+Triggered from the wizard (either after indexing or standalone when index already exists).
+
+**Step A — Select vision model** (Task 0.4 component, vision context)
+
+**Step B — Scene-by-scene loop**
+
+Wizard collects all scenes across all indexed chapters, then iterates:
+
+For each scene:
+```
+Scene: The Throne Room  (Chapter 2: The Goblin Den)
+
+Candidate images found near this scene:
+  [thumbnail] map-goblin-throne.jpg   [✓ Use]
+  [thumbnail] art-goblin-king.jpg     [  Skip]
+
+(No image — skip this scene)
+```
+
+If the scene already has a `#### Map Layout` section:
+```
+Scene: The Cave Entrance — map data exists.
+  Current: map-cave-entrance.jpg (indexed 2025-03-10)
+  [Replace with new selection]  [Add to existing]  [Skip — keep current]
+```
+
+After GM makes a choice:
+- [Use] / [Replace] / [Add] → run vision AI call → append/replace `#### Map Layout` in
+  `Scene: <name>` page → show result inline → move to next scene
+- [Skip] → move to next scene, existing data untouched
+
+Progress shown as "Scene 4 of 14". GM can [Stop enrichment] at any point; scenes already
+enriched are kept.
+
+After all scenes: done summary → [Finish]
+
+---
+
+### Task 0.7 — Wizard entry from settings app
+
+In `AiAssistantSettingsApp`, replace the current Build Lore Index button with:
+
+```
+[Build Lore Index]        ← if no index exists
+[Lore Index ▾]            ← if index exists (split button or two buttons)
+  [Rebuild chapters]
+  [Update map enrichments]
+```
+
+All options open `LoreIndexWizard` — the wizard's Task 0.1 state detection handles routing to
+the correct starting screen.
+
+`loreIndexMaxTokens` remains in the settings form (controls the AI call budget used by the wizard).
+
+---
+
+## Phase 1 — Text Index (core builder logic)
+
+### Task 1.1 — ~~Output token budget~~ NOT NEEDED
+
+Max output tokens is configured ephemerally in the wizard (Task 0.1 location/config screen)
+and passed directly to `LoreIndexBuilder`. No stored setting required.
+All Task 1.1 code changes have been reverted.
 
 ---
 
@@ -80,32 +350,27 @@ Add a new setting `loreIndexMaxTokens` (default `16384`) to `definitions.ts` and
 
 **Files:** `LoreIndexBuilder.ts`, `JournalApi.ts`
 
-Change `_writeIndex` so instead of writing one big page it writes multiple pages into
-`adventureIndexJournalName`:
+Change `_writeIndex` so it writes multiple pages into `adventureIndexJournalName`:
 
 | Page name | Content |
 |---|---|
-| `Overview` | Global NPCs, factions, world context. Neutral summary of the whole adventure. |
-| `Chapter: <name>` | One page per chapter. Neutral arc summary — all scenes, stakes, themes. |
-| `Scene: <name>` | One page per scene. Full detail, sublocations flat list, NPCs present. |
+| `Overview` | Global NPCs, factions, world context. Neutral. |
+| `Chapter: <name>` | Neutral arc summary — all scenes, stakes, themes. |
+| `Scene: <name>` | Full detail, sublocations flat list, NPCs present. Map layout appended here by enrichment. |
 
-Each page targets ~4 096 output tokens. The AI receives full content and is instructed to write
-using sentinel delimiters so the builder can split one response into separate pages:
+AI output uses sentinel delimiters for splitting:
 
 ```
 ---OVERVIEW---
-...overview content...
+...
 ---CHAPTER: The Road to Millhaven---
-...chapter content...
+...
 ---SCENE: The Road Ambush---
-...scene content...
+...
 ```
 
-Keep the option to do individual calls per chapter if total output would exceed `loreIndexMaxTokens`.
-
-The index is deliberately neutral — no visited/unvisited framing. That framing is applied at
-runtime by Call 1 (Situation Assessment), which combines the chapter summary with the session
-summary to infer what the party has done vs what lies ahead.
+The builder splits on sentinels and writes each block as a separate journal page.
+Pages are written incrementally so partial results survive if the wizard is stopped early.
 
 ---
 
@@ -113,14 +378,11 @@ summary to infer what the party has done vs what lies ahead.
 
 **File:** `LoreIndexBuilder.ts`
 
-If total input content exceeds a configurable character threshold (default ~200 000 chars,
-~50 000 tokens), switch to a per-chapter call strategy:
+If total input content exceeds ~200 000 chars (~50 000 tokens), switch to per-chapter calls:
+1. One AI call per chapter → Chapter page + Scene pages for that chunk
+2. Final call across all chapter summaries → Overview page
 
-1. Split pages by top-level folder / heading group (one chunk per chapter).
-2. One AI call per chunk → produces Chapter page + Scene pages for that chunk.
-3. Final AI call receives all chapter summaries → produces the Overview page.
-
-This keeps each call within even conservative local model context windows (Qwen3.5-9B: 262k).
+Fits within Qwen3.5-9B's 262k context window even for large published adventures.
 
 ---
 
@@ -128,17 +390,12 @@ This keeps each call within even conservative local model context windows (Qwen3
 
 **File:** `foundry/src/modules/ContextBuilder.ts`
 
-Update `_readLore` to load pages by tier based on GM selection:
-
 | GM selection state | Pages loaded |
 |---|---|
 | Chapter + Scene selected | `Overview` + `Chapter: <name>` + `Scene: <name>` |
 | Chapter only | `Overview` + `Chapter: <name>` |
 | Nothing selected | `Overview` only |
-| No index built | keyword-scored raw pages (current fallback behaviour) |
-
-Total lore budget per Interact call: ~3 × 4 096 = ~12 288 tokens max. In practice much smaller
-since scene pages for focused scenes are compact.
+| No index built | keyword-scored raw pages (current fallback) |
 
 ---
 
@@ -146,59 +403,31 @@ since scene pages for focused scenes are compact.
 
 **File:** `AiGmWindow.ts`, `ai-gm-window.hbs`
 
-Add a chapter dropdown/list to the AI GM Window populated from the `Chapter: *` pages in the
-lore index. GM selects once per session; selection is cached.
-
-Scene is not selected manually — it is proposed by Call 1 (Situation Assessment). GM confirms
-or corrects via the confirmation card.
+Chapter dropdown populated from `Chapter: *` pages in the lore index. GM selects once per
+session; cached. Scene is proposed by Call 1 (Situation Assessment), not selected manually.
 
 ---
 
 ### Task 1.6 — Revised Interact flow (two-call)
 
-**File:** `AiGmWindow.ts` (and supporting modules)
+**File:** `AiGmWindow.ts`
 
-Replace the current single-call Interact with:
+**Call 1 — Situation Assessment:** chapter summary + session entries + session summary + active
+scene name → scene guess + recap + ranked NPC candidates (single structured response) →
+GM confirms scene + NPC in one card.
 
-**Call 1 — Situation Assessment**
-- Input: chapter summary, recent session entries (last N), session summary, active Foundry scene name
-- Output: structured block with current scene guess + recap + ranked NPC candidates
-- Display: single confirmation card (scene label + recap paragraph + NPC list with confirm buttons)
-- GM confirms scene + NPC in one click; can adjust before confirming
+**Call 2 — Persona Response:** chapter summary + scene summary + situation recap + confirmed
+NPC → streaming persona response → adjustment buttons → Accept (unchanged).
 
-**Call 2 — Persona Response**
-- Triggered immediately after GM confirms
-- Input: chapter summary, scene summary, situation recap, confirmed NPC + topic
-- Output: streaming persona response
-- Feeds into existing adjustment buttons + Accept flow unchanged
-
-Cache the assembled context from Call 1 so adjustment button re-calls (colder/warmer/etc.)
-do not reassemble from scratch.
+Context from Call 1 cached for adjustment button re-calls.
 
 ---
 
-### Task 1.7 — Progress feedback during build
-
-**File:** `LoreIndexBuilder.ts`, settings app
-
-The rebuild is multi-step and can take minutes on large modules. Emit progress notifications
-(`ui.notifications.info`) at each stage:
-
-- "Collecting pages…"
-- "Sending to AI service… (N pages)"
-- "Writing chapter and scene pages… (X of Y)"
-- "Writing overview…"
-- "Lore index built successfully — X chapters, Y scenes."
-
----
-
-## Phase 2 — Map Enrichment (optional, user-initiated)
+## Phase 2 — Map Enrichment (wizard-driven, no persistent settings)
 
 ### Task 2.1 — Add vision support to AiService interface
 
 **Files:** `foundry/src/services/AiService.ts`, `ClaudeService.ts`, `LocalAiService.ts`
-
-Add an optional method to the `AiService` interface:
 
 ```ts
 callWithImage?(
@@ -209,100 +438,33 @@ callWithImage?(
 ): Promise<string>;
 ```
 
-Implement in `ClaudeService` using the existing messages API with an `image` content block
-(Claude supports vision natively — base64 or URL).
-
-Implement in `LocalAiService` using a **separate** vision model setting (see Task 2.2).
-If no vision model is configured, the method throws a descriptive error.
+`ClaudeService`: image content block (base64 or URL).
+`LocalAiService`: vision model ID passed as a `CallOptions` parameter from the wizard (not stored
+in settings). Throws a descriptive error if called without a model.
 
 ---
 
-### Task 2.2 — Add vision model setting for LocalAI
-
-**Files:** `foundry/src/definitions.ts`, `AiAssistantSettingsApp.ts`, `ai-assistant-settings.hbs`
-
-Add a new setting `localAiVisionModel` (string, default `""`) under the LocalAI section.
-Displayed as a text input with placeholder `e.g. qwen3-vl-8b-instruct`.
-
-When blank, Phase 2 is disabled for LocalAI users. Show a note in the UI explaining that a
-vision model is required for map enrichment.
-
----
-
-### Task 2.3 — Collect candidate map images per scene
+### Task 2.2 — Collect candidate map images per scene
 
 **File:** `LoreIndexBuilder.ts`
 
-After Phase 1 completes, scan journal pages in the adventure folder for embedded images:
-
-- `<img src="...">` in page HTML
-- `src` field of image-type journal pages
-
-Group candidate images by the scene they were found in (matched by proximity to the scene's
-heading in the source content, or "unmatched" if attribution is unclear).
+Scan journal pages for embedded images (`<img src="...">` and image-type pages).
+Group by scene via proximity to scene headings in source content.
 Return `{ sceneName: string; imageUrls: string[] }[]`.
 
 ---
 
-### Task 2.4 — GM map selection UI
+### Task 2.3 — Vision AI map parsing
 
-**File:** New `MapSelectionDialog.ts` (ApplicationV2).
+**File:** `LoreIndexBuilder.ts` (`_enrichSceneWithMap`)
 
-After Phase 1 finishes (or via a separate **Enrich Maps** button in the settings), show the GM
-a review dialog:
+For each confirmed map image, call `callWithImage()` to:
+- List numbered/lettered locations visible on the map
+- Describe direct adjacency between locations
+- Output as markdown list
 
-```
-┌─────────────────────────────────────────────────┐
-│  Map Enrichment — Select Maps                   │
-├─────────────────────────────────────────────────┤
-│  Scene: The Goblin Warren                       │
-│    [thumbnail] map-goblin-warren.jpg  [✓ Use]   │
-│    [thumbnail] art-goblin-shaman.jpg  [  Skip]  │
-│                                                 │
-│  Scene: The Flooded Vault                       │
-│    [thumbnail] map-vault-level1.jpg   [✓ Use]   │
-│    [thumbnail] map-vault-level2.jpg   [✓ Use]   │
-│                                                 │
-│  Unmatched                                      │
-│    [thumbnail] cover-art.jpg          [  Skip]  │
-├─────────────────────────────────────────────────┤
-│              [Cancel]  [Enrich Selected Maps]   │
-└─────────────────────────────────────────────────┘
-```
-
-Confirmed selections stored in module flags (persist across sessions).
-
----
-
-### Task 2.5 — Vision AI map parsing
-
-**File:** `LoreIndexBuilder.ts` (new method `_enrichSceneWithMap`)
-
-For each GM-confirmed map image:
-
-1. Call `aiService.callWithImage()` asking the model to:
-   - List all numbered or lettered locations visible on the map.
-   - Describe which locations are directly adjacent (share a door, corridor, or open connection).
-   - Output as a simple markdown list.
-
-2. Append the result to the relevant `Scene: <name>` journal page under a `#### Map Layout`
-   heading.
-
-3. Emit progress notifications per map processed.
-
----
-
-### Task 2.6 — "Enrich Maps" button in settings
-
-**File:** `AiAssistantSettingsApp.ts`, `ai-assistant-settings.hbs`
-
-Add an **Enrich Maps** button next to **Build Lore Index** / **Rebuild**.
-
-Disabled when:
-- No lore index exists yet (Phase 1 must run first).
-- No vision-capable service is configured (Claude API key absent AND `localAiVisionModel` blank).
-
-Button triggers Task 2.4 → on confirm triggers Task 2.5.
+Write result under `#### Map Layout` in `Scene: <name>` page.
+Replace or append based on GM's choice in Task 0.6 Step B.
 
 ---
 
@@ -311,4 +473,4 @@ Button triggers Task 2.4 → on confirm triggers Task 2.5.
 - Parsing spatial coordinates from map images (adjacency descriptions are sufficient).
 - Compendium-based adventure data (journals only).
 - Player-facing access to the lore index.
-- Automatic chapter/scene detection without GM input.
+- Persistent storage of indexing or vision model preferences.
