@@ -1,0 +1,53 @@
+<div class="beavers-lore-wizard standard-form" style="padding:1rem">
+
+  <p style="margin-top:0">
+    Confirm chapters before indexing. Untick any you want to skip.
+  </p>
+
+  <div style="display:flex;flex-direction:column;gap:.4rem;margin-bottom:1.25rem">
+    {{#each chapters}}
+    <div draggable="true" data-chapter-id="{{id}}"
+         style="display:flex;align-items:flex-start;gap:.75rem;padding:.4rem .5rem;
+                border:1px solid var(--color-border-light-2,#ddd);border-radius:4px;cursor:grab">
+
+      <i class="fas fa-grip-vertical" style="opacity:.35;padding-top:.2rem;font-size:.8em;flex-shrink:0"></i>
+
+      <div style="flex:1;font-size:.875em;padding-top:.15rem">
+        {{#if (eq sourceType "folder")}}<i class="fas fa-folder" style="opacity:.6"></i>{{/if}}
+        {{#if (eq sourceType "journal")}}<i class="fas fa-book" style="opacity:.6"></i>{{/if}}
+        {{#if (eq sourceType "header")}}<i class="fas fa-heading" style="opacity:.6"></i>{{/if}}
+        {{name}}
+        <span style="font-size:.8em;opacity:.6;font-family:monospace;margin-left:.4rem">~{{tokens}} tokens</span>
+      </div>
+
+      <div style="display:flex;gap:.1rem;flex-shrink:0">
+        {{#if showOverviewOption}}
+        <label style="display:flex;align-items:center;gap:.25rem;font-size:.8em;cursor:pointer;padding:.2rem .4rem;border-radius:3px">
+          <input type="radio" name="chapter-role-{{id}}" value="overview" {{#if roleIsOverview}}checked{{/if}}>
+          Overview
+        </label>
+        {{/if}}
+        <label style="display:flex;align-items:center;gap:.25rem;font-size:.8em;cursor:pointer;padding:.2rem .4rem;border-radius:3px">
+          <input type="radio" name="chapter-role-{{id}}" value="chapter" {{#if roleIsChapter}}checked{{/if}}>
+          Chapter
+        </label>
+        <label style="display:flex;align-items:center;gap:.25rem;font-size:.8em;cursor:pointer;padding:.2rem .4rem;border-radius:3px">
+          <input type="radio" name="chapter-role-{{id}}" value="skip" {{#if roleIsSkip}}checked{{/if}}>
+          Skip
+        </label>
+      </div>
+
+    </div>
+    {{/each}}
+  </div>
+
+  <div style="display:flex;justify-content:space-between">
+    <button type="button" data-action="backToStatus">
+      <i class="fas fa-arrow-left"></i> Back
+    </button>
+    <button type="button" data-action="confirmChapters">
+      <i class="fas fa-wand-magic-sparkles"></i> Start Indexing
+    </button>
+  </div>
+
+</div>

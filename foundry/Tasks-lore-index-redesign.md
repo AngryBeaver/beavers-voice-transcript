@@ -148,7 +148,7 @@ output is naturally bounded by one chapter's content.
 
 ---
 
-### Task 0.3 — Chapter detection and GM confirmation
+### Task 0.3 — Chapter detection and GM confirmation ✓ DONE
 
 Chapter detection rules depend on what the GM selected in Step 0.1:
 
