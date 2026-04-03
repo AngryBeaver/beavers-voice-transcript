@@ -23,40 +23,58 @@ const realGame = {
   },
 };
 
-describe.skipIf(skipIfNoLocalAi)('LocalAiService - models endpoint (integration)', { timeout: 15_000 }, () => {
-  it('lists available models and includes qwen3.5-9b', async () => {
-    const response = await fetch(`${process.env.LOCAL_AI_URL}/v1/models`);
-    expect(response.ok).toBe(true);
-    const data = await response.json() as { data: { id: string }[] };
-    const ids = data.data.map((m) => m.id);
-    expect(ids).toContain('qwen3.5-9b');
-  });
+describe.skipIf(skipIfNoLocalAi)(
+  'LocalAiService - models endpoint (integration)',
+  { timeout: 15_000 },
+  () => {
+    it('lists available models and includes qwen3.5-9b', async () => {
+      const response = await fetch(`${process.env.LOCAL_AI_URL}/v1/models`);
+      expect(response.ok).toBe(true);
+      const data = (await response.json()) as { data: { id: string }[] };
+      const ids = data.data.map((m) => m.id);
+      expect(ids).toContain('qwen3.5-9b');
+    });
 
-  it('http.request POST works (undici bypass)', async () => {
-    const url = new URL(`${process.env.LOCAL_AI_URL}/v1/chat/completions`);
-    const body = JSON.stringify({
-      model: process.env.LOCAL_MODEL || 'qwen3.5-9b',
-      max_tokens: 20,
-      messages: [{ role: 'user', content: 'Say hi.' }],
+    it('http.request POST works (undici bypass)', async () => {
+      const url = new URL(`${process.env.LOCAL_AI_URL}/v1/chat/completions`);
+      const body = JSON.stringify({
+        model: process.env.LOCAL_MODEL || 'qwen3.5-9b',
+        max_tokens: 20,
+        messages: [{ role: 'user', content: 'Say hi.' }],
+      });
+      const text = await new Promise<string>((resolve, reject) => {
+        const req = http.request(
+          {
+            hostname: '127.0.0.1',
+            port: url.port,
+            path: url.pathname,
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Content-Length': Buffer.byteLength(body),
+            },
+          },
+          (res) => {
+            console.log('response headers received, status:', res.statusCode);
+            let data = '';
+            res.on('data', (chunk) => {
+              console.log('data chunk received, bytes:', chunk.length);
+              data += chunk;
+            });
+            res.on('end', () => {
+              console.log('response ended');
+              resolve(data);
+            });
+          },
+        );
+        req.on('error', reject);
+        req.write(body);
+        req.end();
+      });
+      expect(text).toBeTruthy();
     });
-    const text = await new Promise<string>((resolve, reject) => {
-      const req = http.request(
-        { hostname: '127.0.0.1', port: url.port, path: url.pathname, method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } },
-        (res) => {
-          console.log('response headers received, status:', res.statusCode);
-          let data = '';
-          res.on('data', (chunk) => { console.log('data chunk received, bytes:', chunk.length); data += chunk; });
-          res.on('end', () => { console.log('response ended'); resolve(data); });
-        },
-      );
-      req.on('error', reject);
-      req.write(body);
-      req.end();
-    });
-    expect(text).toBeTruthy();
-  });
-});
+  },
+);
 
 describe.skipIf(skipIfNoLocalAi)('LocalAiService (integration)', { timeout: 50_000 }, () => {
   let service: LocalAiService;

@@ -87,7 +87,7 @@ export class LoreIndexWizard extends foundry.applications.api.HandlebarsApplicat
 ) {
   static DEFAULT_OPTIONS = {
     id: 'beavers-lore-index-wizard',
-    window: { title: 'Lore Index Wizard', resizable: false },
+    window: { title: 'Lore Index Wizard', resizable: true },
     position: { width: 540 },
     actions: {
       continueFromLocation: LoreIndexWizard._onContinueFromLocation,

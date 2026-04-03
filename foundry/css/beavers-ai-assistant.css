@@ -2,6 +2,12 @@
    Beavers AI Assistant — AI GM Window
    ============================================================ */
 
+/* Lore Index Wizard — constrain height and scroll when content overflows */
+#beavers-lore-index-wizard .window-content {
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+
 /* Custom module icon */
 .bai-icon::before {
   content: '';
