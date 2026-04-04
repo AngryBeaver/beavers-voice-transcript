@@ -1,3 +1,8 @@
+import { NAMESPACE, SETTINGS, DEFAULTS } from '../definitions.js';
+import type { AiProvider } from '../definitions.js';
+import { ClaudeService } from './ClaudeService.js';
+import { LocalAiService } from './LocalAiService.js';
+
 export interface GameData {
   settings: {
     get(namespace: string, key: string): unknown;
@@ -26,4 +31,20 @@ export interface AiService {
     onChunk: (chunk: string, type: ChunkType) => void,
     options?: CallOptions,
   ): Promise<string>;
+}
+
+export namespace AiService {
+  /**
+   * Create the appropriate AI service for the given game context.
+   *
+   * @param game     Foundry game object (or compatible mock).
+   * @param provider Optional override — when omitted the stored setting is used.
+   */
+  export function create(game: GameData, provider?: AiProvider): AiService {
+    const resolved: string =
+      provider ??
+      (game.settings.get(NAMESPACE, SETTINGS.AI_PROVIDER) as string) ??
+      DEFAULTS.AI_PROVIDER;
+    return resolved === 'claude' ? new ClaudeService(game) : new LocalAiService(game);
+  }
 }

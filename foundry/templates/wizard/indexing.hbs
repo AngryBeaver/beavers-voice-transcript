@@ -1,0 +1,114 @@
+<div class="beavers-ai-assistant lore-wizard standard-form">
+
+  {{!-- Header --}}
+  <p class="lw-intro" style="margin-top:0">
+    {{#if indexing.isComplete}}
+      <i class="fas fa-circle-check" style="color:var(--color-level-success,#28a745)"></i>
+      Index complete
+    {{else if indexing.isOverview}}
+      <i class="fas fa-spinner fa-spin"></i>
+      Generating Overview…
+    {{else}}
+      Chapter {{indexing.chapterIdx}} of {{indexing.totalChapters}} —
+      <strong>{{indexing.chapterName}}</strong>
+    {{/if}}
+  </p>
+
+  {{!-- Error banner (shown when returning to pre_chapter after a failure) --}}
+  {{#if indexing.error}}
+  <div class="lw-alert lw-alert--error" style="margin-bottom:.75rem">
+    <i class="fas fa-circle-exclamation"></i> {{indexing.error}}
+  </div>
+  {{/if}}
+
+  {{!-- PRE_CHAPTER: token estimate + start/skip/stop --}}
+  {{#if indexing.isPreChapter}}
+  <p style="font-size:.875em;opacity:.75;margin-top:0">~{{indexing.chapterTokensFormatted}} input tokens</p>
+  <div class="lw-nav" style="gap:.5rem">
+    <button type="button" data-action="indexThisChapter" style="flex:1">
+      <i class="fas fa-wand-magic-sparkles"></i> Index this chapter
+    </button>
+    <button type="button" data-action="skipThisChapter">Skip</button>
+    <button type="button" data-action="stopIndexing">Stop for now</button>
+  </div>
+  {{/if}}
+
+  {{!-- ALREADY_INDEXED: offer rebuild or keep --}}
+  {{#if indexing.isAlreadyIndexed}}
+  <p>
+    <i class="fas fa-circle-check" style="color:var(--color-level-success,#28a745)"></i>
+    Already indexed.
+  </p>
+  <div class="lw-nav" style="gap:.5rem">
+    <button type="button" data-action="rebuildChapter" style="flex:1">Rebuild this chapter</button>
+    <button type="button" data-action="skipThisChapter">Skip → keep existing</button>
+  </div>
+  {{/if}}
+
+  {{!-- RUNNING: live log --}}
+  {{#if indexing.isRunning}}
+  <div id="indexing-log"
+       style="font-family:monospace;font-size:.85em;padding:.5rem .75rem;
+              background:rgba(0,0,0,0.1);color:#111;
+              border:1px solid var(--color-border-light-primary,#ccc);
+              border-radius:4px;min-height:4rem;max-height:12rem;overflow-y:auto">
+    {{#each indexing.log}}
+    <div>{{this}}</div>
+    {{/each}}
+  </div>
+  {{/if}}
+
+  {{!-- BETWEEN: chapter done, show next or "all indexed" --}}
+  {{#if indexing.isBetween}}
+  {{#if indexing.justCompleted}}
+  <p>
+    <i class="fas fa-circle-check" style="color:var(--color-level-success,#28a745)"></i>
+    <strong>{{indexing.justCompleted}}</strong> done.
+  </p>
+  {{/if}}
+  {{#if indexing.hasNextChapter}}
+  <p>Next: <strong>{{indexing.nextChapterName}}</strong></p>
+  <div class="lw-nav" style="gap:.5rem">
+    <button type="button" data-action="continueIndexing" style="flex:1">Continue</button>
+    <button type="button" data-action="skipNextChapter">Skip this chapter</button>
+    <button type="button" data-action="stopIndexing">Stop here</button>
+  </div>
+  {{else}}
+  <p>All chapters indexed.</p>
+  <div class="lw-nav" style="gap:.5rem">
+    <button type="button" data-action="generateOverview" style="flex:1">
+      <i class="fas fa-wand-magic-sparkles"></i> Generate Overview
+    </button>
+    <button type="button" data-action="stopIndexing">Stop here</button>
+  </div>
+  {{/if}}
+  {{/if}}
+
+  {{!-- OVERVIEW: spinner while running (auto-triggered from _onRender) --}}
+  {{#if indexing.isOverview}}
+  <p style="opacity:.75">Building overview from chapter summaries…</p>
+  {{/if}}
+
+  {{!-- COMPLETE: summary + exit options --}}
+  {{#if indexing.isComplete}}
+  {{#if indexing.error}}
+  <div class="lw-alert lw-alert--error" style="margin-bottom:.75rem">
+    <i class="fas fa-circle-exclamation"></i> Overview failed: {{indexing.error}}
+  </div>
+  {{/if}}
+  <p>
+    {{indexing.completedCount}}
+    {{#if (eq indexing.completedCount 1)}}chapter{{else}}chapters{{/if}},
+    {{indexing.sceneCount}}
+    {{#if (eq indexing.sceneCount 1)}}scene{{else}}scenes{{/if}}
+    indexed.
+  </p>
+  <div class="lw-nav" style="gap:.5rem">
+    <button type="button" data-action="continueToEnrichment" style="flex:1">
+      Continue to Map Enrichment
+    </button>
+    <button type="button" data-action="finishWizard">Finish</button>
+  </div>
+  {{/if}}
+
+</div>

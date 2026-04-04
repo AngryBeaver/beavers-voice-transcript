@@ -6,6 +6,8 @@ import {
   DEFAULTS,
 } from '../definitions.js';
 import type { AiProvider } from '../definitions.js';
+import { AiService } from '../services/AiService.js';
+import type { CallOptions } from '../services/AiService.js';
 import {
   ChapterCandidate,
   ChapterDetector,
@@ -13,53 +15,17 @@ import {
   flagIntroCandidate,
   GameAccessor,
 } from '../modules/ChapterDetector.js';
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-interface LocationItem {
-  id: string;
-  name: string;
-  type: 'folder' | 'journal';
-}
-
-/** View-model version of a chapter candidate with pre-computed role booleans. */
-interface ChapterCandidateView extends ChapterCandidate {
-  roleIsOverview: boolean;
-  roleIsChapter: boolean;
-  roleIsSkip: boolean;
-  /** Whether to show the "Overview source" radio — first non-header candidate only. */
-  showOverviewOption: boolean;
-}
-
-type WizardStep = 'location' | 'mixed' | 'chapters' | 'model';
-type IndexStatus = 'none' | 'exists';
-type ModelContext = 'indexing' | 'vision';
-
-interface WizardContext {
-  // common
-  locationName: string;
-  locationType: 'folder' | 'journal';
-  // location step
-  locations: LocationItem[];
-  // mixed step
-  mixedFolders: ChapterCandidate[];
-  mixedJournals: ChapterCandidate[];
-  // chapters step
-  chapters: ChapterCandidateView[];
-  // model step
-  modelContext: ModelContext;
-  selectedProvider: AiProvider;
-  selectedModel: string;
-  availableModels: string[];
-  modelFetchError: boolean;
-  estimatedInputTokensFormatted: string;
-  estimatedOutputTokensFormatted: string;
-  claudeCostEstimate: string;
-  hasClaudeApiKey: boolean;
-  localAiUrl: string;
-}
+import { LoreIndexBuilder } from '../modules/LoreIndexBuilder.js';
+import { IndexingPassRunner } from '../modules/IndexingPassRunner.js';
+import type {
+  LocationItem,
+  WizardStep,
+  IndexStatus,
+  ModelContext,
+  IndexingCtx,
+  WizardContext,
+  ChapterCandidateView,
+} from './LoreIndexWizard.types.js';
 
 // ---------------------------------------------------------------------------
 // Foundry GameAccessor implementation
@@ -98,6 +64,7 @@ function makeFoundryGameAccessor(): GameAccessor {
  *
  * Each step has its own Handlebars template declared in PARTS.
  * Only the active step's part is rendered on each transition.
+ * Indexing pass state is managed by {@link IndexingPassRunner}.
  */
 export class LoreIndexWizard extends foundry.applications.api.HandlebarsApplicationMixin(
   foundry.applications.api.ApplicationV2,
@@ -116,6 +83,16 @@ export class LoreIndexWizard extends foundry.applications.api.HandlebarsApplicat
       backToChapters: LoreIndexWizard._onBackToChapters,
       refreshModels: LoreIndexWizard._onRefreshModels,
       startIndexing: LoreIndexWizard._onStartIndexing,
+      // Indexing pass
+      indexThisChapter: LoreIndexWizard._onIndexThisChapter,
+      rebuildChapter: LoreIndexWizard._onRebuildChapter,
+      skipThisChapter: LoreIndexWizard._onSkipThisChapter,
+      continueIndexing: LoreIndexWizard._onContinueIndexing,
+      skipNextChapter: LoreIndexWizard._onSkipNextChapter,
+      stopIndexing: LoreIndexWizard._onStopIndexing,
+      generateOverview: LoreIndexWizard._onGenerateOverview,
+      finishWizard: LoreIndexWizard._onFinishWizard,
+      continueToEnrichment: LoreIndexWizard._onContinueToEnrichment,
     },
   };
 
@@ -124,11 +101,12 @@ export class LoreIndexWizard extends foundry.applications.api.HandlebarsApplicat
     mixed: { template: `modules/${NAMESPACE}/templates/wizard/mixed.hbs` },
     chapters: { template: `modules/${NAMESPACE}/templates/wizard/chapters.hbs` },
     model: { template: `modules/${NAMESPACE}/templates/wizard/model.hbs` },
+    indexing: { template: `modules/${NAMESPACE}/templates/wizard/indexing.hbs` },
   };
 
   private static _instance: LoreIndexWizard | null = null;
 
-  // Wizard state — persists across step transitions within one session
+  // Wizard navigation state
   private _step: WizardStep = 'location';
   private _selectedLocation: LocationItem | null = null;
   private _indexStatus: IndexStatus = 'none';
@@ -142,6 +120,9 @@ export class LoreIndexWizard extends foundry.applications.api.HandlebarsApplicat
   private _selectedModel: string = '';
   private _availableModels: string[] = [];
   private _modelFetchError: boolean = false;
+
+  // Indexing pass state — managed by the runner
+  private readonly _runner = new IndexingPassRunner();
 
   private readonly _detector = new ChapterDetector(makeFoundryGameAccessor());
 
@@ -173,6 +154,9 @@ export class LoreIndexWizard extends foundry.applications.api.HandlebarsApplicat
     if (this._step === 'location') this._setupLocationBadge();
     if (this._step === 'chapters') this._setupChapterDragDrop();
     if (this._step === 'model') this._setupModelListeners();
+    if (this._step === 'indexing' && this._runner.phase === 'overview') {
+      void this._runIndexingOverview();
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -309,13 +293,15 @@ export class LoreIndexWizard extends foundry.applications.api.HandlebarsApplicat
       locations: this._collectLocations(),
       mixedFolders: this._mixedFolders,
       mixedJournals: this._mixedJournals,
-      chapters: this._chapters.map((c) => ({
-        ...c,
-        roleIsOverview: c.role === 'overview',
-        roleIsChapter: c.role === 'chapter',
-        roleIsSkip: c.role === 'skip',
-        showOverviewOption: true,
-      })),
+      chapters: this._chapters.map(
+        (c): ChapterCandidateView => ({
+          ...c,
+          roleIsOverview: c.role === 'overview',
+          roleIsChapter: c.role === 'chapter',
+          roleIsSkip: c.role === 'skip',
+          showOverviewOption: true,
+        }),
+      ),
       modelContext: this._modelContext,
       selectedProvider: this._selectedProvider,
       selectedModel: this._selectedModel,
@@ -326,6 +312,32 @@ export class LoreIndexWizard extends foundry.applications.api.HandlebarsApplicat
       claudeCostEstimate: this._claudeCostFromTokens(inputTokens, outputTokens),
       hasClaudeApiKey: this._hasClaudeApiKey(),
       localAiUrl: this._localAiUrl(),
+      indexing: this._buildIndexingCtx(),
+    };
+  }
+
+  private _buildIndexingCtx(): IndexingCtx {
+    const r = this._runner;
+    const phase = r.phase;
+    return {
+      phase,
+      chapterName: r.currentChapter?.name ?? '',
+      chapterTokensFormatted: (r.currentChapter?.tokens ?? 0).toLocaleString(),
+      chapterIdx: r.currentIdx + 1,
+      totalChapters: r.totalChapters,
+      log: r.log,
+      justCompleted: r.justCompleted,
+      nextChapterName: r.nextChapter?.name ?? '',
+      hasNextChapter: r.hasNextChapter,
+      completedCount: r.completedCount,
+      sceneCount: r.sceneCount,
+      error: r.error,
+      isPreChapter: phase === 'pre_chapter',
+      isAlreadyIndexed: phase === 'already_indexed',
+      isRunning: phase === 'running',
+      isBetween: phase === 'between',
+      isOverview: phase === 'overview',
+      isComplete: phase === 'complete',
     };
   }
 
@@ -363,7 +375,6 @@ export class LoreIndexWizard extends foundry.applications.api.HandlebarsApplicat
       (j: any) => j.folder?.id === modFolder.id && j.name === LORE_INDEX_JOURNAL_NAME,
     );
     if (!indexJournal?.pages.size) return 'none';
-    // Check if any page is associated with this location
     const prefix =
       type === 'folder'
         ? (game.folders as any)?.get(id)?.name
@@ -466,7 +477,7 @@ export class LoreIndexWizard extends foundry.applications.api.HandlebarsApplicat
   }
 
   // ---------------------------------------------------------------------------
-  // Actions
+  // Actions — navigation
   // ---------------------------------------------------------------------------
 
   static async _onContinueFromLocation(this: LoreIndexWizard): Promise<void> {
@@ -536,8 +547,138 @@ export class LoreIndexWizard extends foundry.applications.api.HandlebarsApplicat
     this.render({ force: true });
   }
 
+  // ---------------------------------------------------------------------------
+  // Actions — indexing pass
+  // ---------------------------------------------------------------------------
+
   static async _onStartIndexing(this: LoreIndexWizard): Promise<void> {
-    // Task 0.5 — chapter-by-chapter indexing pass
-    ui.notifications.info('Indexing pass — coming in Task 0.5.');
+    const queue = this._chapters.filter((c) => c.role === 'chapter');
+    const overviewChapter = this._chapters.find((c) => c.role === 'overview') ?? null;
+
+    if (queue.length === 0) {
+      (ui as any).notifications.warn(
+        'No chapters to index. Set at least one chapter role to "Chapter".',
+      );
+      return;
+    }
+
+    this._runner.start(queue, overviewChapter);
+    this._goToStep('indexing');
+  }
+
+  static async _onIndexThisChapter(this: LoreIndexWizard): Promise<void> {
+    const chapter = this._runner.currentChapter;
+    if (!chapter) return;
+
+    if (this._createBuilder().isChapterIndexed(chapter.name)) {
+      this._runner.markAlreadyIndexed();
+      this.render({ force: true });
+      return;
+    }
+
+    await this._runChapterIndexing();
+  }
+
+  static async _onRebuildChapter(this: LoreIndexWizard): Promise<void> {
+    await this._runChapterIndexing();
+  }
+
+  static async _onSkipThisChapter(this: LoreIndexWizard): Promise<void> {
+    this._runner.skipCurrent();
+    this.render({ force: true });
+  }
+
+  static async _onContinueIndexing(this: LoreIndexWizard): Promise<void> {
+    this._runner.continueToNext();
+    this.render({ force: true });
+  }
+
+  static async _onSkipNextChapter(this: LoreIndexWizard): Promise<void> {
+    this._runner.skipNext();
+    this.render({ force: true });
+  }
+
+  static async _onStopIndexing(this: LoreIndexWizard): Promise<void> {
+    this._runner.stopEarly();
+    this.render({ force: true });
+  }
+
+  static async _onGenerateOverview(this: LoreIndexWizard): Promise<void> {
+    this._runner.startOverview();
+    this.render({ force: true });
+    // _runIndexingOverview is triggered in _onRender when phase === 'overview'
+  }
+
+  static async _onFinishWizard(this: LoreIndexWizard): Promise<void> {
+    await this.close();
+  }
+
+  static async _onContinueToEnrichment(this: LoreIndexWizard): Promise<void> {
+    // Task 0.6 — map enrichment pass (not yet implemented)
+    (ui as any).notifications.info('Map enrichment — coming in Task 0.6.');
+  }
+
+  // ---------------------------------------------------------------------------
+  // Indexing helpers
+  // ---------------------------------------------------------------------------
+
+  private _createBuilder(): LoreIndexBuilder {
+    return new LoreIndexBuilder(game as any, AiService.create(game as any, this._selectedProvider));
+  }
+
+  private _indexingCallOptions(): CallOptions {
+    const opts: CallOptions = { max_tokens: 32768 };
+    if (this._selectedProvider === 'local-ai' && this._selectedModel) {
+      opts.model = this._selectedModel;
+    }
+    return opts;
+  }
+
+  private async _runChapterIndexing(): Promise<void> {
+    const chapter = this._runner.currentChapter;
+    if (!chapter) return;
+
+    this._runner.beginRun();
+    this.render({ force: true });
+
+    try {
+      const sceneCount = await this._createBuilder().indexChapter(
+        chapter,
+        this._indexingCallOptions(),
+        (line) => this._addLogLine(line),
+      );
+      this._runner.chapterComplete(sceneCount);
+    } catch (err) {
+      this._runner.chapterFailed((err as Error).message);
+    }
+
+    this.render({ force: true });
+  }
+
+  private async _runIndexingOverview(): Promise<void> {
+    try {
+      const builder = this._createBuilder();
+      const overviewContent = this._runner.overviewChapter
+        ? builder.collectChapterContent(this._runner.overviewChapter)
+        : undefined;
+      await builder.indexOverview(overviewContent, this._indexingCallOptions());
+      this._runner.overviewComplete();
+    } catch (err) {
+      this._runner.overviewFailed((err as Error).message);
+    }
+
+    this.render({ force: true });
+  }
+
+  /** Append a log line to the runner state and update the DOM directly (no full re-render). */
+  private _addLogLine(line: string): void {
+    this._runner.addLogLine(line);
+    const logEl = this.element?.querySelector<HTMLElement>('#indexing-log');
+    if (logEl) {
+      const div = document.createElement('div');
+      div.textContent = line;
+      logEl.appendChild(div);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
   }
 }

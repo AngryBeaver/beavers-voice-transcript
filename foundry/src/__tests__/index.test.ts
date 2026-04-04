@@ -10,41 +10,41 @@ describe('services/index exports', () => {
     expect(services.LocalAiService).toBeDefined();
   });
 
-  it('exports createAiService factory function', () => {
-    expect(services.createAiService).toBeDefined();
-    expect(typeof services.createAiService).toBe('function');
+  it('exports AiService namespace', () => {
+    expect(services.AiService).toBeDefined();
+    expect(typeof services.AiService.create).toBe('function');
   });
 
-  it('createAiService returns ClaudeService when provider is claude', () => {
+  it('AiService.create returns ClaudeService when provider is claude', () => {
     const mockGame = {
       settings: {
         get: vi.fn((ns, key) => 'claude'),
       },
     };
 
-    const service = services.createAiService(mockGame as any);
+    const service = services.AiService.create(mockGame as any);
     expect(service).toBeInstanceOf(services.ClaudeService);
   });
 
-  it('createAiService returns LocalAiService when provider is local-ai', () => {
+  it('AiService.create returns LocalAiService when provider is local-ai', () => {
     const mockGame = {
       settings: {
         get: vi.fn((ns, key) => 'local-ai'),
       },
     };
 
-    const service = services.createAiService(mockGame as any);
+    const service = services.AiService.create(mockGame as any);
     expect(service).toBeInstanceOf(services.LocalAiService);
   });
 
-  it('createAiService defaults to claude when provider setting is missing', () => {
+  it('AiService.create defaults to claude when provider setting is missing', () => {
     const mockGame = {
       settings: {
         get: vi.fn(() => undefined),
       },
     };
 
-    const service = services.createAiService(mockGame as any);
+    const service = services.AiService.create(mockGame as any);
     expect(service).toBeInstanceOf(services.ClaudeService);
   });
 });
