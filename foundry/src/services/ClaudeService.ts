@@ -1,5 +1,5 @@
 import { NAMESPACE, SETTINGS, DEFAULTS } from '../definitions.js';
-import { AiService, GameData, CallOptions } from './AiService.js';
+import { AiService, AiResponse, GameData, CallOptions, ChunkType } from './AiService.js';
 
 export class ClaudeService implements AiService {
   constructor(private game: GameData) {}
@@ -18,7 +18,11 @@ export class ClaudeService implements AiService {
     );
   }
 
-  async call(systemPrompt: string, userPrompt: string, options?: CallOptions): Promise<string> {
+  private thinkingBody(options?: CallOptions): object {
+    return options?.thinking ? { thinking: { type: 'adaptive' } } : {};
+  }
+
+  async call(systemPrompt: string, userPrompt: string, options?: CallOptions): Promise<AiResponse> {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -32,6 +36,7 @@ export class ClaudeService implements AiService {
         temperature: options?.temperature ?? 0.7,
         system: systemPrompt,
         messages: [{ role: 'user', content: userPrompt }],
+        ...this.thinkingBody(options),
       }),
     });
 
@@ -43,8 +48,11 @@ export class ClaudeService implements AiService {
     }
 
     const data = (await response.json()) as any;
-    if (data.content[0]?.type === 'text') {
-      return data.content[0].text;
+    const blocks: any[] = data.content ?? [];
+    const content = blocks.find((b) => b.type === 'text')?.text ?? '';
+    const reasoning = blocks.find((b) => b.type === 'thinking')?.thinking;
+    if (content || reasoning) {
+      return { content, ...(reasoning ? { reasoning } : {}) };
     }
     throw new Error('Unexpected Claude response format');
   }
@@ -52,7 +60,7 @@ export class ClaudeService implements AiService {
   async stream(
     systemPrompt: string,
     userPrompt: string,
-    onChunk: (chunk: string) => void,
+    onChunk: (chunk: string, type: ChunkType) => void,
     options?: CallOptions,
   ): Promise<string> {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -69,6 +77,7 @@ export class ClaudeService implements AiService {
         system: systemPrompt,
         messages: [{ role: 'user', content: userPrompt }],
         stream: true,
+        ...this.thinkingBody(options),
       }),
     });
 
@@ -98,10 +107,14 @@ export class ClaudeService implements AiService {
         if (raw === '[DONE]') continue;
         try {
           const event = JSON.parse(raw) as any;
-          if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
-            const text = event.delta.text || '';
-            fullText += text;
-            onChunk(text);
+          if (event.type === 'content_block_delta') {
+            if (event.delta?.type === 'thinking_delta') {
+              onChunk(event.delta.thinking || '', 'reasoning');
+            } else if (event.delta?.type === 'text_delta') {
+              const text = event.delta.text || '';
+              fullText += text;
+              onChunk(text, 'content');
+            }
           }
         } catch {
           // malformed SSE line, skip

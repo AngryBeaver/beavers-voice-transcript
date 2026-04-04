@@ -62,7 +62,7 @@ describe('LocalAiService', () => {
       const service = new LocalAiService(mockGame as any);
       const result = await service.call('system', 'user', { max_tokens: 512 });
 
-      expect(result).toBe('LocalAI response');
+      expect(result).toEqual({ content: 'LocalAI response' });
     });
 
     it('sends system as a message role', async () => {
@@ -95,6 +95,20 @@ describe('LocalAiService', () => {
 
       const body = JSON.parse(fetchMock.mock.calls[0][1].body);
       expect(body.model).toBe(DEFAULTS.LOCAL_MODEL);
+    });
+
+    it('returns reasoning when content is empty (thinking model)', async () => {
+      vi.stubGlobal(
+        'fetch',
+        mockFetch({
+          choices: [{ message: { content: '', reasoning: 'some reasoning' } }],
+        }),
+      );
+
+      const service = new LocalAiService(mockGame as any);
+      const result = await service.call('system', 'user');
+
+      expect(result).toEqual({ content: '', reasoning: 'some reasoning' });
     });
 
     it('throws on non-ok response', async () => {
@@ -152,6 +166,29 @@ describe('LocalAiService', () => {
       await service.stream('system', 'user', (c) => chunks.push(c));
 
       expect(chunks).toEqual(['actual']);
+    });
+
+    it('emits reasoning chunks with type reasoning, content chunks with type content', async () => {
+      vi.stubGlobal(
+        'fetch',
+        mockStreamFetch([
+          'data: {"choices":[{"delta":{"reasoning":"thinking..."}}]}',
+          'data: {"choices":[{"delta":{"content":"answer"}}]}',
+          'data: [DONE]',
+        ]),
+      );
+
+      const service = new LocalAiService(mockGame as any);
+      const received: { chunk: string; type: string }[] = [];
+      const result = await service.stream('system', 'user', (chunk, type) =>
+        received.push({ chunk, type }),
+      );
+
+      expect(received).toEqual([
+        { chunk: 'thinking...', type: 'reasoning' },
+        { chunk: 'answer', type: 'content' },
+      ]);
+      expect(result).toBe('answer');
     });
 
     it('sends stream: true in body', async () => {

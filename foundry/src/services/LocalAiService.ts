@@ -1,5 +1,5 @@
 import { NAMESPACE, SETTINGS, DEFAULTS } from '../definitions.js';
-import { AiService, GameData, CallOptions } from './AiService.js';
+import { AiService, AiResponse, GameData, CallOptions, ChunkType } from './AiService.js';
 
 export class LocalAiService implements AiService {
   constructor(private game: GameData) {}
@@ -18,7 +18,7 @@ export class LocalAiService implements AiService {
     );
   }
 
-  async call(systemPrompt: string, userPrompt: string, options?: CallOptions): Promise<string> {
+  async call(systemPrompt: string, userPrompt: string, options?: CallOptions): Promise<AiResponse> {
     const response = await fetch(`${this.baseURL}/v1/chat/completions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -38,8 +38,12 @@ export class LocalAiService implements AiService {
     }
 
     const data = (await response.json()) as any;
-    if (data.choices[0]?.message?.content) {
-      return data.choices[0].message.content.trim();
+    const msg = data.choices[0]?.message;
+    if (msg?.content || msg?.reasoning) {
+      return {
+        content: msg.content?.trim() ?? '',
+        ...(msg.reasoning ? { reasoning: msg.reasoning.trim() } : {}),
+      };
     }
     throw new Error('Unexpected LocalAI response format');
   }
@@ -47,7 +51,7 @@ export class LocalAiService implements AiService {
   async stream(
     systemPrompt: string,
     userPrompt: string,
-    onChunk: (chunk: string) => void,
+    onChunk: (chunk: string, type: ChunkType) => void,
     options?: CallOptions,
   ): Promise<string> {
     const response = await fetch(`${this.baseURL}/v1/chat/completions`, {
@@ -88,10 +92,14 @@ export class LocalAiService implements AiService {
         if (raw === '[DONE]') continue;
         try {
           const event = JSON.parse(raw) as any;
-          if (event.choices[0]?.delta?.content) {
-            const text = event.choices[0].delta.content;
-            fullText += text;
-            onChunk(text);
+          const reasoning = event.choices[0]?.delta?.reasoning;
+          const content = event.choices[0]?.delta?.content;
+          if (reasoning) {
+            onChunk(reasoning, 'reasoning');
+          }
+          if (content) {
+            fullText += content;
+            onChunk(content, 'content');
           }
         } catch {
           // malformed SSE line, skip

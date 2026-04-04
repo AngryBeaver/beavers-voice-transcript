@@ -37,8 +37,8 @@ describe.skipIf(skipIfNoApiKey)('ClaudeService (integration)', () => {
     );
 
     expect(result).toBeTruthy();
-    expect(typeof result).toBe('string');
-    expect(result).toContain('Hello');
+    expect(result.content || result.reasoning).toBeTruthy();
+    expect((result.content + (result.reasoning ?? '')).toLowerCase()).toContain('hello');
   });
 
   it('streams text from real Claude API', async () => {
@@ -63,7 +63,8 @@ describe.skipIf(skipIfNoApiKey)('ClaudeService (integration)', () => {
     );
 
     // Very rough heuristic: 50 tokens is roughly 37-50 words
-    const wordCount = result.split(/\s+/).length;
+    const combined = result.content + (result.reasoning ?? '');
+    const wordCount = combined.split(/\s+/).length;
     expect(wordCount).toBeLessThan(100);
   });
 
@@ -79,7 +80,7 @@ describe.skipIf(skipIfNoApiKey)('ClaudeService (integration)', () => {
       max_tokens: 20,
     });
 
-    expect(creative).toBeTruthy();
-    expect(conservative).toContain('4');
+    expect(creative.content || creative.reasoning).toBeTruthy();
+    expect(conservative.content + (conservative.reasoning ?? '')).toContain('4');
   });
 });

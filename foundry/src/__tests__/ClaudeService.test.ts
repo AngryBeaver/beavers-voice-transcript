@@ -62,7 +62,7 @@ describe('ClaudeService', () => {
       const service = new ClaudeService(mockGame as any);
       const result = await service.call('system', 'user', { max_tokens: 1000 });
 
-      expect(result).toBe('Claude response');
+      expect(result).toEqual({ content: 'Claude response' });
     });
 
     it('sends correct headers and body', async () => {
@@ -152,6 +152,29 @@ describe('ClaudeService', () => {
       expect(chunks).toEqual(['Only this']);
     });
 
+    it('emits reasoning chunks with type reasoning, content chunks with type content', async () => {
+      vi.stubGlobal(
+        'fetch',
+        mockStreamFetch([
+          'data: {"type":"content_block_delta","delta":{"type":"thinking_delta","thinking":"thinking..."}}',
+          'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"answer"}}',
+          'data: [DONE]',
+        ]),
+      );
+
+      const service = new ClaudeService(mockGame as any);
+      const received: { chunk: string; type: string }[] = [];
+      const result = await service.stream('system', 'user', (chunk, type) =>
+        received.push({ chunk, type }),
+      );
+
+      expect(received).toEqual([
+        { chunk: 'thinking...', type: 'reasoning' },
+        { chunk: 'answer', type: 'content' },
+      ]);
+      expect(result).toBe('answer');
+    });
+
     it('sends stream: true in body', async () => {
       const fetchMock = mockStreamFetch([]);
       vi.stubGlobal('fetch', fetchMock);
@@ -161,6 +184,28 @@ describe('ClaudeService', () => {
 
       const body = JSON.parse(fetchMock.mock.calls[0][1].body);
       expect(body.stream).toBe(true);
+    });
+
+    it('includes adaptive thinking in body when thinking: true', async () => {
+      const fetchMock = mockStreamFetch([]);
+      vi.stubGlobal('fetch', fetchMock);
+
+      const service = new ClaudeService(mockGame as any);
+      await service.stream('system', 'user', () => {}, { thinking: true });
+
+      const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+      expect(body.thinking).toEqual({ type: 'adaptive' });
+    });
+
+    it('omits thinking from body when thinking is not set', async () => {
+      const fetchMock = mockStreamFetch([]);
+      vi.stubGlobal('fetch', fetchMock);
+
+      const service = new ClaudeService(mockGame as any);
+      await service.stream('system', 'user', () => {});
+
+      const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+      expect(body.thinking).toBeUndefined();
     });
   });
 });

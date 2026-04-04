@@ -9,7 +9,7 @@ import { NAMESPACE, SETTINGS, DEFAULTS } from '../definitions.js';
  * Run: LOCAL_AI_URL=http://localhost:8080 npm run test
  */
 
-//process.env.LOCAL_AI_URL = 'http://localhost:8080'
+//process.env.LOCAL_AI_URL = 'http://localhost:8080';
 
 const skipIfNoLocalAi = !process.env.LOCAL_AI_URL;
 
@@ -32,13 +32,13 @@ describe.skipIf(skipIfNoLocalAi)(
       expect(response.ok).toBe(true);
       const data = (await response.json()) as { data: { id: string }[] };
       const ids = data.data.map((m) => m.id);
-      expect(ids).toContain('qwen3.5-9b');
+      expect(ids).toContain('qwen3-8b');
     });
 
     it('http.request POST works (undici bypass)', async () => {
       const url = new URL(`${process.env.LOCAL_AI_URL}/v1/chat/completions`);
       const body = JSON.stringify({
-        model: process.env.LOCAL_MODEL || 'qwen3.5-9b',
+        model: process.env.LOCAL_MODEL || 'qwen3-8b',
         max_tokens: 20,
         messages: [{ role: 'user', content: 'Say hi.' }],
       });
@@ -93,8 +93,8 @@ describe.skipIf(skipIfNoLocalAi)('LocalAiService (integration)', { timeout: 50_0
     );
 
     expect(result).toBeTruthy();
-    expect(typeof result).toBe('string');
-    expect(result).toContain('Hello');
+    expect(result.content || result.reasoning).toBeTruthy();
+    expect((result.content + (result.reasoning ?? '')).toLowerCase()).toContain('hello');
   });
 
   it('streams text from real LocalAI server', async () => {
@@ -103,7 +103,7 @@ describe.skipIf(skipIfNoLocalAi)('LocalAiService (integration)', { timeout: 50_0
       'You are a concise assistant.',
       'Count from 1 to 3.',
       (chunk) => chunks.push(chunk),
-      { max_tokens: 100 },
+      { max_tokens: 2048 },
     );
 
     expect(chunks.length).toBeGreaterThan(0);
@@ -119,7 +119,8 @@ describe.skipIf(skipIfNoLocalAi)('LocalAiService (integration)', { timeout: 50_0
     );
 
     // Very rough heuristic: 50 tokens is roughly 37-50 words
-    const wordCount = result.split(/\s+/).length;
+    const combined = result.content + (result.reasoning ?? '');
+    const wordCount = combined.split(/\s+/).length;
     expect(wordCount).toBeLessThan(120);
   });
 
@@ -127,15 +128,15 @@ describe.skipIf(skipIfNoLocalAi)('LocalAiService (integration)', { timeout: 50_0
     const creative = await service.call(
       'You are creative and random.',
       'Give a made-up animal name.',
-      { temperature: 0.9, max_tokens: 20 },
+      { temperature: 0.9, max_tokens: 360 },
     );
 
     const conservative = await service.call('You are factual and conservative.', 'What is 2+2?', {
       temperature: 0.1,
-      max_tokens: 20,
+      max_tokens: 360,
     });
 
-    expect(creative).toBeTruthy();
-    expect(conservative).toContain('4');
+    expect(creative.content || creative.reasoning).toBeTruthy();
+    expect(conservative.content).toContain('4');
   });
 });

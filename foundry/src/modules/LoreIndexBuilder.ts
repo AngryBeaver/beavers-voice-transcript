@@ -151,7 +151,7 @@ ${contentToIndex}
 Produce the index as markdown. Start directly with ## Part 1 or ## World if there are no explicit parts.`;
 
     try {
-      const index = await this.#aiService.call(systemPrompt, userPrompt, {
+      const { content: index } = await this.#aiService.call(systemPrompt, userPrompt, {
         max_tokens: 32768,
       });
 
