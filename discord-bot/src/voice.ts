@@ -1,0 +1,203 @@
+import {
+  joinVoiceChannel,
+  VoiceConnectionStatus,
+  entersState,
+  EndBehaviorType,
+  VoiceConnection,
+  VoiceReceiver,
+} from '@discordjs/voice';
+import * as prism from 'prism-media';
+import { VoiceBasedChannel } from 'discord.js';
+import fs from 'fs';
+import path from 'path';
+import { transcribe } from './whisper.js';
+import { transcribeJournal, showChatBubble } from './foundry.js';
+import { detectCommand } from './commands.js';
+
+const TRAINING_DATA_DIR = process.env.TRAINING_DATA_DIR ?? '';
+const speakerCounters = new Map<string, number>();
+
+async function saveTrainingPair(speakerName: string, wav: Buffer, transcript: string): Promise<void> {
+  if (!TRAINING_DATA_DIR) return;
+  const today = new Date().toISOString().slice(0, 10);
+  const dir = path.join(TRAINING_DATA_DIR, today);
+  await fs.promises.mkdir(dir, { recursive: true });
+  const n = (speakerCounters.get(speakerName) ?? 0) + 1;
+  speakerCounters.set(speakerName, n);
+  const base = path.join(dir, `${speakerName}_${String(n).padStart(4, '0')}`);
+  await Promise.all([
+    fs.promises.writeFile(`${base}.wav`, wav),
+    fs.promises.writeFile(`${base}.txt`, transcript, 'utf8'),
+  ]);
+}
+
+const SILENCE_TIMEOUT_MS = 1000;
+// At 48000 Hz, 16-bit mono: 96 bytes per millisecond of PCM
+const BYTES_PER_MS = 96;
+const WAV_HEADER_BYTES = 44;
+const MIN_AUDIO_MS = parseInt(process.env.WHISPER_MIN_AUDIO_MS ?? '500', 10);
+const MIN_WAV_BYTES = MIN_AUDIO_MS * BYTES_PER_MS + WAV_HEADER_BYTES;
+
+// Pipe-separated phrases that Whisper hallucinates on silence/noise
+const HALLUCINATION_PHRASES: string[] = (process.env.WHISPER_HALLUCINATION_FILTER ?? '')
+  .split('|')
+  .map((s) => s.trim().toLowerCase())
+  .filter(Boolean);
+
+function isHallucination(transcript: string): boolean {
+  if (!HALLUCINATION_PHRASES.length) return false;
+  const normalized = transcript.trim().toLowerCase();
+  return HALLUCINATION_PHRASES.some((phrase) => normalized === phrase);
+}
+
+let connection: VoiceConnection | null = null;
+let isRecording = false;
+
+export async function joinAndListen(channel: VoiceBasedChannel): Promise<void> {
+  connection = joinVoiceChannel({
+    channelId: channel.id,
+    guildId: channel.guild.id,
+    adapterCreator: channel.guild.voiceAdapterCreator,
+    selfDeaf: false,
+    selfMute: true,
+  });
+
+  await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
+  console.log(`[Voice] Joined channel: ${channel.name}`);
+  console.log('[Voice] Paused — waiting for start command');
+
+  const receiver = connection.receiver;
+  const activeUsers = new Set<string>();
+
+  receiver.speaking.on('start', (userId) => {
+    if (activeUsers.has(userId)) return;
+    activeUsers.add(userId);
+    const user = channel.guild.members.cache.get(userId)?.displayName ?? userId;
+    listenToUser(receiver, userId, user, () => activeUsers.delete(userId));
+  });
+}
+
+function listenToUser(
+  receiver: VoiceReceiver,
+  userId: string,
+  displayName: string,
+  onDone: () => void,
+): void {
+  let done = false;
+  const cleanup = () => {
+    if (!done) {
+      done = true;
+      onDone();
+    }
+  };
+
+  const opusStream = receiver.subscribe(userId, {
+    end: { behavior: EndBehaviorType.AfterSilence, duration: SILENCE_TIMEOUT_MS },
+  });
+
+  opusStream.on('error', (err) => {
+    console.warn(`[Voice] Opus stream error for ${displayName}: ${err.message}`);
+    cleanup();
+  });
+
+  const pcmStream = opusStream.pipe(
+    new prism.opus.Decoder({ rate: 48000, channels: 1, frameSize: 960 }),
+  );
+
+  pcmStream.on('error', (err) => {
+    console.warn(`[Voice] PCM stream error for ${displayName}: ${err.message}`);
+    cleanup();
+  });
+
+  buildWavBuffer(pcmStream, async (buffer) => {
+    try {
+      if (buffer.length < MIN_WAV_BYTES) return;
+
+      const transcript = await transcribe(buffer);
+      if (!transcript) return;
+      if (isHallucination(transcript)) {
+        console.log(`[Voice] Filtered hallucination from ${displayName}: "${transcript}"`);
+        return;
+      }
+      await saveTrainingPair(displayName, buffer, transcript);
+
+      const command = detectCommand(transcript);
+
+      if (command) {
+        switch (command.type) {
+          case 'start':
+            isRecording = true;
+            console.log('[Bot] Recording STARTED — writing to Foundry');
+            break;
+          case 'pause':
+            isRecording = false;
+            console.log('[Bot] Recording PAUSED — console only');
+            break;
+        }
+        return; // commands are never written to Foundry or the transcript log
+      }
+
+      if (isRecording) {
+        console.log(`[${displayName}]: ${transcript}`);
+        await Promise.all([
+          transcribeJournal(displayName, transcript),
+          showChatBubble(displayName, transcript),
+        ]);
+      } else {
+        console.log(`[PAUSED] [${displayName}]: ${transcript}`);
+      }
+    } catch (err) {
+      console.error(`[Voice] Processing error for ${displayName}: ${(err as Error).message}`, err);
+    } finally {
+      cleanup();
+    }
+  });
+}
+
+interface WavOptions {
+  sampleRate: number;
+  channels: number;
+  bitDepth: number;
+}
+
+function buildWavBuffer(
+  pcmStream: NodeJS.ReadableStream,
+  onComplete: (buffer: Buffer) => void,
+): void {
+  const chunks: Buffer[] = [];
+  pcmStream.on('data', (chunk: Buffer) => chunks.push(chunk));
+  pcmStream.on('end', () => {
+    const pcm = Buffer.concat(chunks);
+    onComplete(pcmToWav(pcm, { sampleRate: 48000, channels: 1, bitDepth: 16 }));
+  });
+}
+
+function pcmToWav(pcm: Buffer, { sampleRate, channels, bitDepth }: WavOptions): Buffer {
+  const header = Buffer.alloc(44);
+  const byteRate = (sampleRate * channels * bitDepth) / 8;
+  const blockAlign = (channels * bitDepth) / 8;
+
+  header.write('RIFF', 0);
+  header.writeUInt32LE(36 + pcm.length, 4);
+  header.write('WAVE', 8);
+  header.write('fmt ', 12);
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20);
+  header.writeUInt16LE(channels, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(byteRate, 28);
+  header.writeUInt16LE(blockAlign, 32);
+  header.writeUInt16LE(bitDepth, 34);
+  header.write('data', 36);
+  header.writeUInt32LE(pcm.length, 40);
+
+  return Buffer.concat([header, pcm]);
+}
+
+export function leave(): void {
+  if (connection) {
+    connection.destroy();
+    connection = null;
+    console.log('[Voice] Left voice channel');
+  }
+}

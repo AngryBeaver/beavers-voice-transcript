@@ -1,0 +1,151 @@
+import { NAMESPACE, SETTINGS, SOCKET_NAME } from '../definitions.js';
+import { ChatBubbleApi, ChatBubbleOptions } from './ChatBubbleApi.js';
+import { JournalApi } from './JournalApi.js';
+import { ActorApi } from './ActorApi.js';
+import { JournalData, JournalPageData } from '../types';
+
+interface SocketRequest {
+  id: string;
+  action: string;
+  args: unknown[];
+}
+
+interface SocketResponse {
+  id: string;
+  data?: unknown;
+  error?: string;
+}
+
+/**
+ * Socket API for external tools using socket.io-client.
+ *
+ * External tool flow:
+ *   1. GET  http://localhost:30000/join  → parse ai-assistant userId from users list
+ *   2. POST http://localhost:30000/join  { userid, password, action:"join" }  → set-cookie
+ *   3. Connect socket.io-client with that cookie
+ *   4. Emit SOCKET_NAME with { id: uuid, action, args }
+ *   5. Listen on SOCKET_NAME; resolve when response.id matches
+ *
+ * Also used by other Foundry modules directly via socketlib.
+ */
+export class SocketApi {
+  private static readonly handler = (data: SocketRequest) => SocketApi.onRequest(data);
+
+  static start(): void {
+    game.socket.on(SOCKET_NAME, SocketApi.handler);
+    console.log(`${NAMESPACE} | Socket API started`);
+  }
+
+  static stop(): void {
+    game.socket.off(SOCKET_NAME, SocketApi.handler);
+  }
+
+  private static async onRequest(data: SocketRequest): Promise<void> {
+    if (!data?.id || !data?.action) return;
+
+    // Any connected client can answer gmPresent — used for diagnostics.
+    if (data.action === 'gmPresent') {
+      const response: SocketResponse = {
+        id: data.id,
+        data: { present: !!(game.users as any).activeGM },
+      };
+      game.socket.emit(SOCKET_NAME, response);
+      return;
+    }
+
+    if (!game.user.isGM) return;
+
+    let result: unknown;
+    let error: string | undefined;
+
+    try {
+      switch (data.action) {
+        case 'listJournals':
+          if (!game.user.isGM) return;
+          result = await JournalApi.listJournals(data.args[0] as string | undefined);
+          break;
+        case 'readJournal':
+          if (!game.user.isGM) return;
+          result = await JournalApi.readJournal(data.args[0] as string);
+          break;
+        case 'writeJournal':
+          if (!game.user.isGM) return;
+          result = await JournalApi.writeJournal(data.args[0] as JournalData);
+          break;
+        case 'writeJournalPage':
+          if (!game.user.isGM) return;
+          result = await JournalApi.writeJournalPage(
+            data.args[0] as string,
+            data.args[1] as JournalPageData,
+          );
+          break;
+        case 'appendJournalPage':
+          if (!game.user.isGM) return;
+          result = await JournalApi.appendJournalPage(
+            data.args[0] as string,
+            data.args[1] as string,
+            data.args[2] as string,
+            (data.args[3] as number | null) ?? undefined,
+          );
+          break;
+        case 'transcribeJournal':
+          if (!game.user.isGM) return;
+          result = await JournalApi.transcribeJournal(
+            data.args[0] as string,
+            data.args[1] as string,
+          );
+          break;
+        case 'listCompendiumActors':
+          result = await ActorApi.listCompendiumActors(data.args[0] as string | undefined);
+          break;
+        case 'queryCompendiumActor':
+          result = await ActorApi.queryCompendiumActor(
+            data.args[0] as string,
+            data.args[1] as string | undefined,
+          );
+          break;
+        case 'readWorldActor':
+          result = await ActorApi.readWorldActor(data.args[0] as string);
+          break;
+        case 'deleteWorldActor':
+          result = await ActorApi.deleteWorldActor(data.args[0] as string);
+          break;
+        case 'chatBubble': {
+          const nameOrId = data.args[0] as string;
+          const message = data.args[1] as string;
+          const options = (data.args[2] as ChatBubbleOptions | undefined) ?? {};
+
+          const discordGmUser = game.settings.get(NAMESPACE, SETTINGS.DISCORD_GM_USER) as string;
+          let tokenId: string | undefined;
+
+          if (discordGmUser && nameOrId === discordGmUser) {
+            const gmToken = ChatBubbleApi.resolveGmNpcToken();
+            if (gmToken) tokenId = (gmToken as any).id;
+            // else: no NPC selected — silently ignore
+          } else {
+            const token = ChatBubbleApi.resolveToken(nameOrId);
+            if (token) tokenId = (token as any).id;
+          }
+
+          if (tokenId) {
+            // Broadcast via socketlib so every client renders the bubble
+            const slSocket = (game as any)[NAMESPACE]?.socket;
+            if (slSocket) {
+              await slSocket.executeForEveryone('chatBubble', tokenId, message, options);
+            } else {
+              await ChatBubbleApi.showBubble(tokenId, message, options);
+            }
+          }
+          break;
+        }
+        default:
+          throw new Error(`Unknown action: ${data.action}`);
+      }
+    } catch (e: unknown) {
+      error = (e as Error).message;
+    }
+
+    const response: SocketResponse = error ? { id: data.id, error } : { id: data.id, data: result };
+    game.socket.emit(SOCKET_NAME, response);
+  }
+}

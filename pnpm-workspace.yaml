@@ -1,0 +1,12 @@
+packages:
+  - client
+  - discord-bot
+  - foundry
+  - test
+allowBuilds:
+  '@discordjs/opus': false
+  esbuild: false
+
+minimumReleaseAge: 20160 # 14 days in minutes — supply chain protection
+minimumReleaseAgeExclude:
+  - "beavers-voice-transcript-client" # own package — no age gate needed
