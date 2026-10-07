@@ -60,8 +60,6 @@ docker compose -f ../discord-bot-compose.cpu.yml up -d
 | `FOUNDRY_URL` | FoundryVTT base URL, e.g. `http://localhost:30000` |
 | `FOUNDRY_USER` | User ID from the Beavers Voice Transcript module settings |
 | `FOUNDRY_PASS` | Password for that user |
-| `FOUNDRY_FOLDER_NAME` | Journal folder to write into (default: `Session Transcripts`) |
-| `FOUNDRY_PAGE_NAME` | Journal page name (default: `Transcript`) |
 
 ### Bot Commands
 
@@ -81,6 +79,9 @@ docker compose -f ../discord-bot-compose.cpu.yml up -d
 | `WHISPER_TASK` | `transcribe` (keep language) or `translate` (output always English) |
 | `WHISPER_INITIAL_PROMPT` | Optional prompt to prime Whisper with expected words |
 | `WHISPER_TIMEOUT_MS` | Abort request after this many ms if Whisper hangs (default: `30000`) |
+| `WHISPER_MIN_AUDIO_MS` | Ignore audio clips shorter than this (default: `500`) |
+| `WHISPER_VAD_FILTER` | Skip non-speech audio before transcribing, `faster_whisper` engine only (default: `true`) |
+| `WHISPER_HALLUCINATION_FILTER` | Pipe-separated phrases to drop — see below |
 
 #### Nvidia GPU setup
 
@@ -147,6 +148,39 @@ Common codes: `en` `de` `fr` `nl` `es` `it` `pl` `ja`
 WHISPER_INITIAL_PROMPT=Scribe write down. Scribe stop it. Scribe new page.
 ```
 
+#### Hallucinations
+
+On silence or noise Whisper invents text. The bot drops a transcript when it is:
+- an echo of `WHISPER_INITIAL_PROMPT`, including misheard variants such as `Jörg, Jasper, Klovareck, Discord`
+- a loop of the same words, e.g. `Jornal, Jornal, Jornal` (short interjections like `ja, ja, ja` are kept)
+- a phrase listed in `WHISPER_HALLUCINATION_FILTER`
+
+Filter phrases ignore case, punctuation and repeated words, so `Vielen Dank` also matches `Vielen Dank.`:
+```
+WHISPER_HALLUCINATION_FILTER=Vielen Dank|Thanks for watching|Jornal
+```
+
+Voice commands are never filtered. Dropped transcripts are logged as `Filtered hallucination`.
+
+#### Collecting training data
+
+To fine-tune Whisper on your group's voices and names, let the bot keep every clip it writes to Foundry:
+```
+TRAINING_DATA_DIR=/training-data
+```
+`/training-data` is the path inside the Docker container; the compose files map it to `./training-data` next to them. Without Docker, use any local path.
+
+Each session day gets its own folder:
+```
+training-data/2026-06-23/
+  metadata.csv                        file_name,transcription
+  183512044_Klovarek-Ukelstein.wav
+  183514920_AngryBeaver.wav
+```
+After a session, open `metadata.csv`, listen to the clips and correct the `transcription` column. Delete the rows (and wav files) of clips that are noise or unusable. Nothing is saved while recording is paused, and commands and filtered hallucinations are skipped.
+
+The folder is a Hugging Face [`audiofolder`](https://huggingface.co/docs/datasets/audio_dataset#audiofolder) dataset, so it loads directly into a fine-tuning script. The clips contain your players' voices — ask them first, and keep the folder private.
+
 ---
 
 ## Voice Commands
@@ -171,8 +205,10 @@ Matching is fuzzy (case-insensitive, punctuation-tolerant) to account for Whispe
 2. Audio is sent to the local Whisper instance — no data leaves your machine
 3. The transcript is checked for voice commands (see above)
 4. If recording is active, the line is appended to a FoundryVTT Journal Entry:
-   - Folder: value of `FOUNDRY_FOLDER_NAME`
-   - Entry: value of `FOUNDRY_PAGE_NAME`
+   - Folder: `beavers-ai-assistant` / `session`
+   - Entry: today's date (`YYYY-MM-DD`), page `Transcript`
+
+   The Foundry module chooses these; the bot cannot change them.
 
 Text commands available in any Discord text channel the bot can read:
 

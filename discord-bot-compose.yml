@@ -39,6 +39,9 @@ services:
       - WHISPER_URL=http://whisper:9000
       # Update this to the GM's Foundry URL if running on a different machine:
       #- FOUNDRY_URL=http://host.docker.internal:13348
+    volumes:
+      # Training clips land here when TRAINING_DATA_DIR=/training-data is set in .env
+      - ./training-data:/training-data
     depends_on:
       - whisper
     restart: unless-stopped

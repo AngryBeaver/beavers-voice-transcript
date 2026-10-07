@@ -27,6 +27,9 @@ services:
     environment:
       - FOUNDRY_URL=http://192.168.0.12:14361
       - WHISPER_URL=http://whisper:9000
+    volumes:
+      # Training clips land here when TRAINING_DATA_DIR=/training-data is set in .env
+      - ./training-data:/training-data
     depends_on:
       - whisper
     restart: unless-stopped

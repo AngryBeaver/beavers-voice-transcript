@@ -3,3 +3,4 @@ package/
 dist/
 .idea/
 .claude/
+training-data/

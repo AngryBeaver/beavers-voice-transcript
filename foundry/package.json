@@ -3,7 +3,7 @@
   "title": "Beaver's Voice Transcript",
   "version": "1.0.0",
   "description": "Writes Discord voice transcripts to Foundry Journals and exposes a socket API for external tools.",
-  "devDir": "c:\\vtts\\v14.363\\Data\\modules",
+  "devDir": "c:\\vtts\\v14.368\\Data\\modules",
   "main": "src/beavers-voice-transcript.js",
   "scripts": {
     "typecheck": "tsc --noEmit",

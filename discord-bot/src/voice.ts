@@ -13,22 +13,42 @@ import path from 'path';
 import { transcribe } from './whisper.js';
 import { transcribeJournal, showChatBubble } from './foundry.js';
 import { detectCommand } from './commands.js';
+import { isHallucination } from './hallucination.js';
 
 const TRAINING_DATA_DIR = process.env.TRAINING_DATA_DIR ?? '';
-const speakerCounters = new Map<string, number>();
+const TRAINING_METADATA_FILE = 'metadata.csv';
 
-async function saveTrainingPair(speakerName: string, wav: Buffer, transcript: string): Promise<void> {
+function csvField(value: string): string {
+  return `"${value.replace(/"/g, '""').replace(/\s+/g, ' ')}"`;
+}
+
+/**
+ * Save the clip and its transcript for Whisper fine-tuning. Each day gets a folder
+ * of wav files plus a metadata.csv (file_name,transcription) to correct by hand —
+ * the layout Hugging Face's "audiofolder" dataset loader reads directly.
+ */
+async function saveTrainingPair(
+  speakerName: string,
+  wav: Buffer,
+  transcript: string,
+): Promise<void> {
   if (!TRAINING_DATA_DIR) return;
-  const today = new Date().toISOString().slice(0, 10);
-  const dir = path.join(TRAINING_DATA_DIR, today);
+  const now = new Date().toISOString();
+  const dir = path.join(TRAINING_DATA_DIR, now.slice(0, 10));
   await fs.promises.mkdir(dir, { recursive: true });
-  const n = (speakerCounters.get(speakerName) ?? 0) + 1;
-  speakerCounters.set(speakerName, n);
-  const base = path.join(dir, `${speakerName}_${String(n).padStart(4, '0')}`);
-  await Promise.all([
-    fs.promises.writeFile(`${base}.wav`, wav),
-    fs.promises.writeFile(`${base}.txt`, transcript, 'utf8'),
-  ]);
+
+  const time = now.slice(11, 23).replace(/[:.]/g, '');
+  const speaker = speakerName.replace(/[^\p{L}\p{N}]+/gu, '-');
+  const fileName = `${time}_${speaker}.wav`;
+  await fs.promises.writeFile(path.join(dir, fileName), wav);
+
+  const metadataPath = path.join(dir, TRAINING_METADATA_FILE);
+  const header = fs.existsSync(metadataPath) ? '' : 'file_name,transcription\n';
+  await fs.promises.appendFile(
+    metadataPath,
+    `${header}${csvField(fileName)},${csvField(transcript)}\n`,
+    'utf8',
+  );
 }
 
 const SILENCE_TIMEOUT_MS = 1000;
@@ -37,18 +57,6 @@ const BYTES_PER_MS = 96;
 const WAV_HEADER_BYTES = 44;
 const MIN_AUDIO_MS = parseInt(process.env.WHISPER_MIN_AUDIO_MS ?? '500', 10);
 const MIN_WAV_BYTES = MIN_AUDIO_MS * BYTES_PER_MS + WAV_HEADER_BYTES;
-
-// Pipe-separated phrases that Whisper hallucinates on silence/noise
-const HALLUCINATION_PHRASES: string[] = (process.env.WHISPER_HALLUCINATION_FILTER ?? '')
-  .split('|')
-  .map((s) => s.trim().toLowerCase())
-  .filter(Boolean);
-
-function isHallucination(transcript: string): boolean {
-  if (!HALLUCINATION_PHRASES.length) return false;
-  const normalized = transcript.trim().toLowerCase();
-  return HALLUCINATION_PHRASES.some((phrase) => normalized === phrase);
-}
 
 let connection: VoiceConnection | null = null;
 let isRecording = false;
@@ -115,13 +123,14 @@ function listenToUser(
 
       const transcript = await transcribe(buffer);
       if (!transcript) return;
-      if (isHallucination(transcript)) {
+
+      const command = detectCommand(transcript);
+
+      // a command may legitimately repeat words from WHISPER_INITIAL_PROMPT
+      if (!command && isHallucination(transcript)) {
         console.log(`[Voice] Filtered hallucination from ${displayName}: "${transcript}"`);
         return;
       }
-      await saveTrainingPair(displayName, buffer, transcript);
-
-      const command = detectCommand(transcript);
 
       if (command) {
         switch (command.type) {
@@ -142,6 +151,7 @@ function listenToUser(
         await Promise.all([
           transcribeJournal(displayName, transcript),
           showChatBubble(displayName, transcript),
+          saveTrainingPair(displayName, buffer, transcript),
         ]);
       } else {
         console.log(`[PAUSED] [${displayName}]: ${transcript}`);

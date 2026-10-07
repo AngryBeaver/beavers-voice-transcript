@@ -2,6 +2,8 @@ const WHISPER_URL = process.env.WHISPER_URL ?? 'http://localhost:9000';
 const WHISPER_TASK = process.env.WHISPER_TASK ?? 'transcribe';
 const WHISPER_LANGUAGE = process.env.WHISPER_LANGUAGE ?? '';
 const WHISPER_INITIAL_PROMPT = process.env.WHISPER_INITIAL_PROMPT ?? '';
+// Skips non-speech audio before transcription (faster_whisper engine only)
+const WHISPER_VAD_FILTER = (process.env.WHISPER_VAD_FILTER ?? 'true').toLowerCase() !== 'false';
 const WHISPER_TIMEOUT_MS = parseInt(process.env.WHISPER_TIMEOUT_MS ?? '30000', 10);
 
 export async function transcribe(wavBuffer: Buffer): Promise<string> {
@@ -11,6 +13,7 @@ export async function transcribe(wavBuffer: Buffer): Promise<string> {
   const params = new URLSearchParams({ task: WHISPER_TASK, output: 'txt' });
   if (WHISPER_LANGUAGE) params.set('language', WHISPER_LANGUAGE);
   if (WHISPER_INITIAL_PROMPT) params.set('initial_prompt', WHISPER_INITIAL_PROMPT);
+  if (WHISPER_VAD_FILTER) params.set('vad_filter', 'true');
 
   const url = `${WHISPER_URL}/asr?${params}`;
   const abort = new AbortController();

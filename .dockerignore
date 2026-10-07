@@ -2,3 +2,5 @@
 **/.env
 foundry/
 test/
+
+training-data/
