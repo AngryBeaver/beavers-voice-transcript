@@ -41,11 +41,18 @@ export class BeaversClient {
     const initCookie = initRes.headers.get('set-cookie')?.split(';')[0].trim();
     if (!initCookie) throw new Error('Could not obtain initial session from /join.');
 
-    // 2. Authenticate
+    // 2. Authenticate — Foundry 14.368+ rejects the POST without a same-origin Origin header
+    //    and reads "userId"; older versions read "userid"
+    const origin = new URL(this.#url).origin;
     const loginRes = await fetch(`${this.#url}/join`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Cookie: initCookie },
-      body: JSON.stringify({ userid: this.#userId, password: this.#password, action: 'join' }),
+      headers: { 'Content-Type': 'application/json', Cookie: initCookie, Origin: origin },
+      body: JSON.stringify({
+        userId: this.#userId,
+        userid: this.#userId,
+        password: this.#password,
+        action: 'join',
+      }),
       redirect: 'manual',
     });
     const body = await loginRes.json().catch(() => ({}));
@@ -67,7 +74,7 @@ export class BeaversClient {
         path: '/socket.io',
         transports: ['websocket'],
         upgrade: false,
-        extraHeaders: { Cookie: cookie },
+        extraHeaders: { Cookie: cookie, Origin: origin },
         query: { session: sessionId },
         withCredentials: false,
       });

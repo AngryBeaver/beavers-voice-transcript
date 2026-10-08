@@ -166,13 +166,14 @@ Voice commands are never filtered. Dropped transcripts are logged as `Filtered h
 
 To fine-tune Whisper on your group's voices and names, let the bot keep every clip it writes to Foundry:
 ```
-TRAINING_DATA_DIR=/training-data
+TRAINING_DATA_DIR=../training/data      # bot started locally with pnpm start
+TRAINING_DATA_DIR=/training-data        # bot in Docker
 ```
-`/training-data` is the path inside the Docker container; the compose files map it to `./training-data` next to them. Without Docker, use any local path.
+Both end up in `training/data` in this repository: the local path is relative to `discord-bot/`, and the compose files map `/training-data` to it. That folder is gitignored. `training/` is also where the fine-tuned model will be built — see `training/README.md`.
 
 Each session day gets its own folder:
 ```
-training-data/2026-06-23/
+training/data/2026-06-23/
   metadata.csv                        file_name,transcription
   183512044_Klovarek-Ukelstein.wav
   183514920_AngryBeaver.wav
@@ -205,7 +206,7 @@ Matching is fuzzy (case-insensitive, punctuation-tolerant) to account for Whispe
 2. Audio is sent to the local Whisper instance — no data leaves your machine
 3. The transcript is checked for voice commands (see above)
 4. If recording is active, the line is appended to a FoundryVTT Journal Entry:
-   - Folder: `beavers-ai-assistant` / `session`
+   - Folder: `Voice Transcripts`
    - Entry: today's date (`YYYY-MM-DD`), page `Transcript`
 
    The Foundry module chooses these; the bot cannot change them.

@@ -7,7 +7,7 @@
 
 Records spoken dialogue from your game sessions and writes it to Foundry Journal entries in real time via a companion Discord bot.
 
-The transcripts are plain journals, so they are useful on their own. The [beavers-ai-assistant](https://github.com/AngryBeaver/beavers-ai-assistant) module can read them as session context for its AI GM Window.
+The transcripts are plain journals in the `Voice Transcripts` folder, one per session day.
 
 ---
 
@@ -31,15 +31,15 @@ To get transcription working you need:
 
 ## What it does
 
-1. Auto-creates a dedicated **ai-assistant** Foundry user (role: Assistant GM) on first load.
+1. Auto-creates a dedicated **voice-transcript-api** Foundry user (role: Assistant GM) on first load.
 2. Opens a `socket.io` channel that authenticated external tools can connect to.
-3. Accepts transcript lines from the voice bot and appends them to a dated Journal entry in the `beavers-ai-assistant/session` journal folder.
+3. Accepts transcript lines from the voice bot and appends them to a dated Journal entry in the `Voice Transcripts` journal folder.
 4. Shows each spoken line as a chat bubble on the speaker's token.
 5. Exposes a Journal and Actor API — list, read, write, and append pages; read compendium and world actors.
 
 ## Setup
 
-On first load the module automatically creates the **ai-assistant** user. Its credentials are shown under:
+On first load the module automatically creates the **voice-transcript-api** user. Its credentials are shown under:
 
 > **Settings → Configure Settings → Beaver's Voice Transcript → Voice Transcript → Configure**
 
@@ -83,8 +83,8 @@ import { BeaversClient } from 'beavers-voice-transcript-client';
 
 const client = new BeaversClient({
   url: 'http://localhost:30000',
-  userId: '<ai-assistant user ID>',
-  password: '<ai-assistant password>',
+  userId: '<voice-transcript-api user ID>',
+  password: '<voice-transcript-api password>',
 });
 
 await client.connect();
@@ -103,9 +103,6 @@ Install via the Foundry module browser or paste the manifest URL directly:
 ```
 https://github.com/AngryBeaver/beavers-voice-transcript/releases/latest/download/module.json
 ```
-
-**Required dependencies** (install via Foundry module browser):
-- `socketlib`
 
 > **A Gamemaster must be connected** for the socket API to function.
 

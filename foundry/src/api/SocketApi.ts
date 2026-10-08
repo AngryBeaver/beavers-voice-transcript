@@ -20,13 +20,11 @@ interface SocketResponse {
  * Socket API for external tools using socket.io-client.
  *
  * External tool flow:
- *   1. GET  http://localhost:30000/join  → parse ai-assistant userId from users list
+ *   1. GET  http://localhost:30000/join  → parse voice-transcript-api userId from users list
  *   2. POST http://localhost:30000/join  { userid, password, action:"join" }  → set-cookie
  *   3. Connect socket.io-client with that cookie
  *   4. Emit SOCKET_NAME with { id: uuid, action, args }
  *   5. Listen on SOCKET_NAME; resolve when response.id matches
- *
- * Also used by other Foundry modules directly via socketlib.
  */
 export class SocketApi {
   private static readonly handler = (data: SocketRequest) => SocketApi.onRequest(data);
@@ -127,15 +125,7 @@ export class SocketApi {
             if (token) tokenId = (token as any).id;
           }
 
-          if (tokenId) {
-            // Broadcast via socketlib so every client renders the bubble
-            const slSocket = (game as any)[NAMESPACE]?.socket;
-            if (slSocket) {
-              await slSocket.executeForEveryone('chatBubble', tokenId, message, options);
-            } else {
-              await ChatBubbleApi.showBubble(tokenId, message, options);
-            }
-          }
+          if (tokenId) await ChatBubbleApi.showBubble(tokenId, message, options);
           break;
         }
         default:

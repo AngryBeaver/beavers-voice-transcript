@@ -4,7 +4,7 @@ export interface ChatBubbleOptions {
 
 export class ChatBubbleApi {
   /**
-   * Display a speech bubble on a token without sending a chat message.
+   * Display a speech bubble on a token for every connected client, without sending a chat message.
    * The token is resolved by actor name, token name, or token/actor ID.
    */
   static async showBubble(
@@ -14,7 +14,9 @@ export class ChatBubbleApi {
   ): Promise<void> {
     const token = ChatBubbleApi.resolveToken(actorOrTokenName);
     if (token) {
-      await canvas.hud.bubbles.say(token, message, { emote: options.emote ?? false });
+      await canvas.hud.bubbles.broadcast(token, message, {
+        cssClasses: options.emote ? ['emote'] : [],
+      });
     }
   }
 

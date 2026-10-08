@@ -4,12 +4,16 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "list":       "node --env-file=.env client.mjs listJournals",
-    "read":       "node --env-file=.env client.mjs readJournal",
-    "write":      "node --env-file=.env client.mjs writeJournal",
+    "e2e": "node --env-file-if-exists=.env --test \"e2e/*.test.mjs\"",
+    "list": "node --env-file=.env client.mjs listJournals",
+    "read": "node --env-file=.env client.mjs readJournal",
+    "write": "node --env-file=.env client.mjs writeJournal",
     "write-page": "node --env-file=.env client.mjs writeJournalPage"
   },
   "dependencies": {
-    "beavers-voice-transcript-client": "file:../client"
+    "beavers-voice-transcript-client": "workspace:*"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^25.11.0"
   }
 }

@@ -2,7 +2,7 @@
 
 Records spoken dialogue from your game sessions and writes it to Foundry VTT Journal entries in real time via a companion Discord bot.
 
-Extracted from [beavers-ai-assistant](https://github.com/AngryBeaver/beavers-ai-assistant), which reads these transcripts as context for its AI GM Window. This project works on its own; the AI assistant is optional.
+Extracted from [beavers-ai-assistant](https://github.com/AngryBeaver/beavers-ai-assistant). This project works on its own and has no connection to that module.
 
 ## What's in this repo
 
@@ -16,7 +16,7 @@ Extracted from [beavers-ai-assistant](https://github.com/AngryBeaver/beavers-ai-
 ## How it works
 
 1. Install the **Foundry module** (`foundry/`) in your Foundry VTT instance.
-2. The module auto-creates an **ai-assistant** user and shows its credentials in the module settings.
+2. The module auto-creates a **voice-transcript-api** user and shows its credentials in the module settings.
 3. Run the **Discord bot** (`discord-bot/`) — it joins your voice channel, transcribes speech via a local [Whisper](https://github.com/openai/whisper) instance, and writes transcripts to Foundry journals.
 
 See **[Docker Setup Guide](./DOCKER-SETUP.md)** for instructions on running the bot and Whisper locally (zero API cost).

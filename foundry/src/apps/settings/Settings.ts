@@ -13,7 +13,7 @@ export class Settings {
 
   private registerSettings(): void {
     // hidden bookkeeping
-    game.settings.register(NAMESPACE, SETTINGS.AI_ASSISTANT_PASSWORD, {
+    game.settings.register(NAMESPACE, SETTINGS.API_USER_PASSWORD, {
       scope: 'world',
       config: false,
       type: String,

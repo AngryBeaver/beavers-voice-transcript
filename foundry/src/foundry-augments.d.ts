@@ -24,13 +24,12 @@ declare namespace foundry {
 interface BeaversTranscriptGame extends foundry.Game {
   'beavers-voice-transcript': {
     Settings: unknown;
-    socket: unknown;
   };
 }
 
 declare const game: BeaversTranscriptGame;
 
 interface SettingConfig {
-  'beavers-voice-transcript.aiAssistantPassword': string;
+  'beavers-voice-transcript.apiUserPassword': string;
   'beavers-voice-transcript.discordGmUser': string;
 }

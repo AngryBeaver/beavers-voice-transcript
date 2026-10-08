@@ -15,7 +15,7 @@
 
 services:
   whisper:
-    image: onerahmet/openai-whisper-asr-webservice:v1.7.1-gpu
+    image: onerahmet/openai-whisper-asr-webservice:v1.10.0-gpu
     ports:
       - "9000:9000"
     environment:
@@ -41,7 +41,7 @@ services:
       #- FOUNDRY_URL=http://host.docker.internal:13348
     volumes:
       # Training clips land here when TRAINING_DATA_DIR=/training-data is set in .env
-      - ./training-data:/training-data
+      - ./training/data:/training-data
     depends_on:
       - whisper
     restart: unless-stopped

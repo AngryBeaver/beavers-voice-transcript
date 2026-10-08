@@ -1,4 +1,9 @@
-import { MODULE_FOLDER_NAME, NAMESPACE, SESSION_FOLDER_NAME } from '../definitions.js';
+import {
+  LEGACY_MODULE_FOLDER_NAME,
+  LEGACY_SESSION_FOLDER_NAME,
+  NAMESPACE,
+  TRANSCRIPT_FOLDER_NAME,
+} from '../definitions.js';
 import { ChatBubbleApi } from './ChatBubbleApi.js';
 import { JournalData, JournalPageData } from '../types.js';
 import { pageText } from '../utils.js';
@@ -123,13 +128,12 @@ export class JournalApi {
   /**
    * Append a transcribed line to today's date-named session journal.
    * Resolves speaker from nameOrId: matched token name > GM > nameOrId.
-   * Writes markdown: "**Speaker:** msg"
+   * Writes one paragraph per line: "<p><strong>Speaker:</strong> msg</p>"
    */
   static async transcribeJournal(msg: string, nameOrId: string): Promise<void> {
     const speaker = JournalApi.resolveSpeaker(nameOrId);
 
-    const moduleFolder = await JournalApi.ensureFolder(MODULE_FOLDER_NAME, null);
-    const sessionFolder = await JournalApi.ensureFolder(SESSION_FOLDER_NAME, moduleFolder.id);
+    const sessionFolder = await JournalApi.ensureTranscriptFolder();
 
     const journalName = new Date().toISOString().slice(0, 10);
     let journal: any =
@@ -162,6 +166,32 @@ export class JournalApi {
     if (user?.role === CONST.USER_ROLES.GAMEMASTER) return 'GM';
 
     return nameOrId;
+  }
+
+  /**
+   * The root folder holding the session journals. Worlds that recorded before the split from
+   * beavers-ai-assistant keep their journals: the old "beavers-ai-assistant/session" folder is
+   * moved to the root and renamed.
+   */
+  static async ensureTranscriptFolder(): Promise<any> {
+    const isJournalFolder = (f: any) => f.type === 'JournalEntry';
+    const existing = game.folders.find(
+      (f: any) => isJournalFolder(f) && f.name === TRANSCRIPT_FOLDER_NAME && f.folder == null,
+    );
+    if (existing) return existing;
+
+    const legacy = game.folders.find(
+      (f: any) =>
+        isJournalFolder(f) &&
+        f.name === LEGACY_SESSION_FOLDER_NAME &&
+        f.folder?.name === LEGACY_MODULE_FOLDER_NAME &&
+        f.folder.folder == null,
+    );
+    if (legacy) {
+      console.log(`${NAMESPACE} | Moving session journals to "${TRANSCRIPT_FOLDER_NAME}"`);
+      return legacy.update({ name: TRANSCRIPT_FOLDER_NAME, folder: null });
+    }
+    return JournalApi.ensureFolder(TRANSCRIPT_FOLDER_NAME, null);
   }
 
   static async ensureFolder(name: string, parentId: string | null): Promise<any> {

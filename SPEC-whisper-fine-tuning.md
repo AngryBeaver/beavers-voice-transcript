@@ -26,10 +26,10 @@ Whisper does not know the campaign's names. The current workaround is `WHISPER_I
 
 ## Already in place: data collection
 
-Enabled with `TRAINING_DATA_DIR=/training-data` in `discord-bot/.env`. The compose files map it to `./training-data`.
+Enabled in `discord-bot/.env` with `TRAINING_DATA_DIR=../training/data` (bot run locally) or `TRAINING_DATA_DIR=/training-data` (Docker; the compose files map it to `./training/data`).
 
 ```
-training-data/2026-10-07/
+training/data/2026-10-07/
   metadata.csv                        file_name,transcription
   183512044_Klovarek-Ukelstein.wav
 ```
@@ -37,7 +37,7 @@ training-data/2026-10-07/
 - Clips are 48 kHz, 16-bit mono WAV, one per utterance
 - Only speech that is written to Foundry is saved — nothing while paused, no commands, no filtered hallucinations
 - The layout is a Hugging Face `audiofolder` dataset
-- `training-data/` is excluded from git and the Docker image
+- `training/data/` is excluded from git; all of `training/` is excluded from the Docker image
 
 After each session: correct the `transcription` column in `metadata.csv` and delete rows and wav files that are noise.
 
@@ -47,9 +47,9 @@ After each session: correct the `transcription` column in `metadata.csv` and del
 
 ### 1. Training script (`training/`)
 
-A Python project separate from the pnpm workspace. It is not part of the bot image.
+A Python project in `training/`, separate from the pnpm workspace and not part of the bot image. The scripts are committed; `training/data/` (clips) and `training/models/` (output) are not.
 
-- Load every `training-data/*/` folder with `load_dataset("audiofolder")`
+- Load every `training/data/*/` folder with `load_dataset("audiofolder")`
 - Resample to 16 kHz (Whisper's input rate)
 - Drop clips over 30 s and rows with an empty transcription
 - Hold out about 10 % for evaluation, split by session day so the same evening is not in both sets
@@ -63,10 +63,10 @@ A Python project separate from the pnpm workspace. It is not part of the bot ima
 Convert the merged model for the `faster_whisper` engine:
 
 ```
-ct2-transformers-converter --model <merged-model> --output_dir models/dnd-whisper --quantization float16
+ct2-transformers-converter --model <merged-model> --output_dir training/models/dnd-whisper --quantization float16
 ```
 
-`models/` goes into `.gitignore` and `.dockerignore`.
+`training/models/` is already in `.gitignore`.
 
 ### 3. Whisper container (`discord-bot-compose.yml`)
 
@@ -76,7 +76,7 @@ whisper:
     - ASR_MODEL=/models/dnd-whisper
     - ASR_ENGINE=faster_whisper
   volumes:
-    - ./models/dnd-whisper:/models/dnd-whisper
+    - ./training/models/dnd-whisper:/models/dnd-whisper
 ```
 
 Keep `ASR_MODEL=${WHISPER_MODEL:-large-v3-turbo}` as the default so a path can be set through `WHISPER_MODEL` in `.env`. Setting it back to `large-v3-turbo` is the rollback.

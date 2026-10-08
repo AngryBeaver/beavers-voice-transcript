@@ -29,7 +29,7 @@ services:
       - WHISPER_URL=http://whisper:9000
     volumes:
       # Training clips land here when TRAINING_DATA_DIR=/training-data is set in .env
-      - ./training-data:/training-data
+      - ./training/data:/training-data
     depends_on:
       - whisper
     restart: unless-stopped
