@@ -10,7 +10,6 @@ Records spoken dialogue from your game sessions and writes it to Foundry Journal
 The transcripts are plain journals in the `Voice Transcripts` folder, one per session day.
 
 ---
-
 ## Requirements
 
 | Requirement                     | Details                                                                                                      |
