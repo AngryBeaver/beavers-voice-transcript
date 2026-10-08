@@ -14,7 +14,6 @@ Extracted from [beavers-ai-assistant](https://github.com/AngryBeaver/beavers-ai-
 | [`test/`](./test) | Local test CLI — quick manual testing against a running Foundry instance |
 
 ## How it works
-
 1. Install the **Foundry module** (`foundry/`) in your Foundry VTT instance.
 2. The module auto-creates a **voice-transcript-api** user and shows its credentials in the module settings.
 3. Run the **Discord bot** (`discord-bot/`) — it joins your voice channel, transcribes speech via a local [Whisper](https://github.com/openai/whisper) instance, and writes transcripts to Foundry journals.
