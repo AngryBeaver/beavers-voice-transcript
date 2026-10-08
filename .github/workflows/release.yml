@@ -99,11 +99,12 @@ jobs:
 
       - run: npm pkg set version=${{ needs.release.outputs.version }}
 
-      - run: pnpm publish --provenance --access public
+      # --no-git-checks: the version bump above leaves package.json modified
+      - run: pnpm publish --provenance --access public --no-git-checks
 
   publish-docker:
     runs-on: ubuntu-latest
-    needs: [release, publish-client]
+    needs: release
 
     steps:
       - uses: actions/checkout@v4
